@@ -1,5 +1,28 @@
 <template>
   <div class="workflow-builder" :style="rootStyle">
+    <!-- Toolbar -->
+    <div v-if="!isReadOnly" class="toolbar">
+      <div class="toolbar__left">
+        <input
+          class="toolbar__name-input"
+          :value="workflowMeta.name || ''"
+          placeholder="Untitled workflow"
+          @input="handleNameChange($event.target.value)"
+        />
+        <span class="toolbar__badge" :class="workflowMeta.is_active ? 'toolbar__badge--live' : 'toolbar__badge--draft'">
+          <span class="toolbar__badge-dot"></span>
+          {{ workflowMeta.is_active ? 'Live' : 'Draft' }}
+        </span>
+      </div>
+      <div class="toolbar__right">
+        <button class="toolbar__btn toolbar__btn--save" @click="handleToolbarSave">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3H3v14h14V3z"/><path d="M14 3v4H6V3"/><path d="M6 17v-6h8v6"/></svg>
+          Save
+        </button>
+        <button class="toolbar__btn toolbar__btn--status" @click="openStatusPanel">Update status</button>
+      </div>
+    </div>
+
     <!-- Left Panel: Node Palette or Config Panel (mutually exclusive) -->
     <div
       v-if="!isReadOnly"
@@ -137,6 +160,36 @@
         <Background :color="gridColorValue" :gap="16" />
         <Controls v-if="!isReadOnly" position="bottom-right" />
       </VueFlow>
+    </div>
+
+    <!-- Status Panel (right overlay) -->
+    <div v-if="statusPanelOpen" class="status-panel">
+      <div class="status-panel__header">
+        <span class="status-panel__title">Flow status</span>
+        <button class="status-panel__close" @click="closeStatusPanel">
+          <svg viewBox="0 0 20 20" width="16" height="16"><path d="M11.414 10l4.293-4.293a1 1 0 00-1.414-1.414L10 8.586 5.707 4.293a1 1 0 00-1.414 1.414L8.586 10l-4.293 4.293a1 1 0 101.414 1.414L10 11.414l4.293 4.293a1 1 0 001.414-1.414L11.414 10z" fill="currentColor"/></svg>
+        </button>
+      </div>
+
+      <div class="status-panel__content">
+        <div class="status-panel__field">
+          <label class="status-panel__label">Status <span class="status-panel__required">*</span></label>
+          <p class="status-panel__help">Select a status for all actions in your workflow</p>
+          <select class="status-panel__select" v-model="pendingStatus">
+            <option :value="true">
+              Live
+            </option>
+            <option :value="false">
+              Draft
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div class="status-panel__footer">
+        <button class="status-panel__btn status-panel__btn--primary" @click="saveStatus">Save</button>
+        <button class="status-panel__btn status-panel__btn--default" @click="closeStatusPanel">Cancel</button>
+      </div>
     </div>
   </div>
 </template>
@@ -828,6 +881,47 @@ export default {
 
     const cancelConfigEdit = () => {
       closeConfigPanel();
+    };
+
+    // Status panel state
+    const statusPanelOpen = ref(false);
+    const pendingStatus = ref(false);
+
+    const openStatusPanel = () => {
+      pendingStatus.value = workflowMeta.value?.is_active || false;
+      statusPanelOpen.value = true;
+    };
+
+    const closeStatusPanel = () => {
+      statusPanelOpen.value = false;
+    };
+
+    const saveStatus = () => {
+      const newStatus = pendingStatus.value;
+      workflowMeta.value = { ...workflowMeta.value, is_active: newStatus };
+      updateVariables();
+      statusPanelOpen.value = false;
+
+      emit('trigger-event', {
+        name: 'status-updated',
+        event: { is_active: newStatus },
+      });
+    };
+
+    // Toolbar handlers
+    const handleNameChange = (value) => {
+      workflowMeta.value = { ...workflowMeta.value, name: value };
+      setIsDirty(true);
+      updateVariables();
+
+      emit('trigger-event', {
+        name: 'workflow-changed',
+        event: { is_dirty: true },
+      });
+    };
+
+    const handleToolbarSave = () => {
+      save();
     };
 
     // Computed styles
@@ -1585,6 +1679,8 @@ export default {
       updateNodeConfig,
       openConfigPanel,
       closeConfigPanel,
+      openStatusPanel,
+      closeStatusPanel,
     });
 
     /* wwEditor:start */
@@ -1627,6 +1723,14 @@ export default {
       saveConfigEdit,
       cancelConfigEdit,
       closeConfigPanel,
+      workflowMeta,
+      statusPanelOpen,
+      pendingStatus,
+      openStatusPanel,
+      closeStatusPanel,
+      saveStatus,
+      handleNameChange,
+      handleToolbarSave,
       /* wwEditor:start */
       isEditing,
       /* wwEditor:end */
@@ -1643,6 +1747,7 @@ export default {
   @include polaris-tokens;
   display: grid !important;
   grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
   gap: 0;
   width: 100%;
   height: 100%;
@@ -1650,11 +1755,145 @@ export default {
   overflow: hidden;
   font-family: var(--p-font-family-sans);
   background: var(--p-color-bg-surface-secondary);
+  position: relative;
+}
+
+// ============================================
+// Toolbar
+// ============================================
+.toolbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--p-space-400);
+  height: 52px;
+  background: var(--p-color-bg-surface);
+  border-bottom: var(--p-border-width-025) solid var(--p-color-border);
+  z-index: 10;
+}
+
+.toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: var(--p-space-300);
+  flex: 1;
+  min-width: 0;
+}
+
+.toolbar__name-input {
+  border: none;
+  background: transparent;
+  font-size: var(--p-font-size-325);
+  font-weight: var(--p-font-weight-semibold);
+  color: var(--p-color-text);
+  padding: var(--p-space-100) var(--p-space-200);
+  border-radius: var(--p-border-radius-200);
+  outline: none;
+  min-width: 120px;
+  max-width: 300px;
+  transition: background 0.1s ease;
+
+  &::placeholder {
+    color: var(--p-color-text-secondary);
+    font-weight: var(--p-font-weight-regular);
+  }
+
+  &:hover {
+    background: var(--p-color-bg-surface-hover);
+  }
+
+  &:focus {
+    background: var(--p-color-bg-surface);
+    box-shadow: 0 0 0 2px var(--p-color-border-focus);
+  }
+}
+
+.toolbar__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: var(--p-font-size-275);
+  font-weight: var(--p-font-weight-medium);
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &--draft {
+    background: var(--p-color-bg-surface-secondary);
+    color: var(--p-color-text-secondary);
+  }
+
+  &--live {
+    background: var(--p-color-bg-fill-success-secondary);
+    color: var(--p-color-text-success);
+  }
+}
+
+.toolbar__badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+
+  .toolbar__badge--draft & {
+    background: var(--p-color-icon-secondary);
+  }
+
+  .toolbar__badge--live & {
+    background: var(--p-color-icon-success);
+  }
+}
+
+.toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--p-space-200);
+  flex-shrink: 0;
+}
+
+.toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--p-space-100);
+  padding: var(--p-space-150) var(--p-space-300);
+  border-radius: var(--p-border-radius-200);
+  font-size: var(--p-font-size-300);
+  font-weight: var(--p-font-weight-medium);
+  cursor: pointer;
+  transition: all 0.1s ease;
+  white-space: nowrap;
+
+  &--save {
+    background: var(--p-color-bg-surface);
+    color: var(--p-color-text);
+    border: var(--p-border-width-025) solid var(--p-color-border);
+
+    &:hover {
+      background: var(--p-color-bg-surface-hover);
+    }
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
+  &--status {
+    background: #303030;
+    color: #FFFFFF;
+    border: var(--p-border-width-025) solid #303030;
+
+    &:hover {
+      background: #1A1A1A;
+    }
+  }
 }
 
 // Left panel — holds either the node palette or the config panel
 .left-panel {
   grid-column: 1;
+  grid-row: 2;
   padding: 0;
   background: var(--p-color-bg-surface);
   display: flex;
@@ -1751,6 +1990,7 @@ export default {
 // Canvas container
 .canvas-container {
   grid-column: 2;
+  grid-row: 2;
   min-width: 300px;
   height: 100%;
   position: relative;
@@ -2181,6 +2421,136 @@ export default {
       opacity: 0.5;
       cursor: not-allowed;
     }
+  }
+}
+
+// ============================================
+// Status Panel - right overlay
+// ============================================
+.status-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 380px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  background: var(--p-color-bg-surface);
+  border-left: var(--p-border-width-025) solid var(--p-color-border);
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
+}
+
+.status-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--p-space-400);
+  border-bottom: var(--p-border-width-025) solid var(--p-color-border);
+}
+
+.status-panel__title {
+  font-size: var(--p-font-size-350);
+  font-weight: var(--p-font-weight-bold);
+  color: var(--p-color-text);
+}
+
+.status-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--p-border-radius-200);
+  background: transparent;
+  color: var(--p-color-text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--p-color-bg-surface-hover);
+    color: var(--p-color-text);
+  }
+}
+
+.status-panel__content {
+  flex: 1;
+  padding: var(--p-space-500);
+  overflow-y: auto;
+}
+
+.status-panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p-space-200);
+}
+
+.status-panel__label {
+  font-size: var(--p-font-size-325);
+  font-weight: var(--p-font-weight-semibold);
+  color: var(--p-color-text);
+}
+
+.status-panel__required {
+  color: var(--p-color-text-critical);
+}
+
+.status-panel__help {
+  font-size: var(--p-font-size-300);
+  color: var(--p-color-text-secondary);
+  margin: 0;
+}
+
+.status-panel__select {
+  width: 100%;
+  padding: var(--p-space-200) var(--p-space-300);
+  font-size: var(--p-font-size-325);
+  border: var(--p-border-width-025) solid var(--p-color-border);
+  border-radius: var(--p-border-radius-200);
+  background: var(--p-color-bg-surface);
+  color: var(--p-color-text);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236D7175' d='M6 8.825c-.2 0-.4-.1-.5-.2l-3.6-3.6c-.3-.3-.3-.8 0-1.1s.8-.3 1.1 0L6 6.925l3-3c.3-.3.8-.3 1.1 0s.3.8 0 1.1l-3.6 3.6c-.1.1-.3.2-.5.2z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--p-color-border-focus);
+  }
+}
+
+.status-panel__footer {
+  display: flex;
+  gap: var(--p-space-200);
+  padding: var(--p-space-400);
+  border-top: var(--p-border-width-025) solid var(--p-color-border);
+}
+
+.status-panel__btn {
+  padding: var(--p-space-200) var(--p-space-400);
+  border-radius: var(--p-border-radius-200);
+  font-size: var(--p-font-size-325);
+  font-weight: var(--p-font-weight-medium);
+  cursor: pointer;
+  transition: all 0.1s ease;
+
+  &--primary {
+    background: #303030;
+    color: #FFFFFF;
+    border: var(--p-border-width-025) solid #303030;
+
+    &:hover { background: #1A1A1A; }
+  }
+
+  &--default {
+    background: var(--p-color-bg-surface);
+    color: var(--p-color-text);
+    border: var(--p-border-width-025) solid var(--p-color-border);
+
+    &:hover { background: var(--p-color-bg-surface-hover); }
   }
 }
 

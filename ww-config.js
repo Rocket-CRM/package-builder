@@ -111,6 +111,26 @@ export default {
       },
       /* wwEditor:end */
     },
+    {
+      name: 'openStatusPanel',
+      label: { en: 'Open Status Panel' },
+      action: 'openStatusPanel',
+      /* wwEditor:start */
+      actionDescription: {
+        en: 'Opens the status panel to change workflow status (Draft/Live)',
+      },
+      /* wwEditor:end */
+    },
+    {
+      name: 'closeStatusPanel',
+      label: { en: 'Close Status Panel' },
+      action: 'closeStatusPanel',
+      /* wwEditor:start */
+      actionDescription: {
+        en: 'Closes the status panel',
+      },
+      /* wwEditor:end */
+    },
   ],
   triggerEvents: [
     {
@@ -192,6 +212,15 @@ export default {
       default: true,
       /* wwEditor:start */
       getTestEvent: '() => ({ nodeId: "node-123", config: { label: "Configured Node" } })',
+      /* wwEditor:end */
+    },
+    {
+      name: 'status-updated',
+      label: { en: 'On Status Updated' },
+      event: { is_active: false },
+      default: true,
+      /* wwEditor:start */
+      getTestEvent: '() => ({ is_active: true })',
       /* wwEditor:end */
     },
   ],
