@@ -290,7 +290,7 @@ const createNodeBody = (label, icon, badgeColor, typeSubtitle) => {
 };
 
 // Helper to create clickable stats footer on each node
-const createNodeStats = (props) => {
+const createNodeStats = (props, isWaitNode = false) => {
   const stats = props.data?.stats;
   const passed = stats?.unique_passed ?? null;
   if (passed === null) return null;
@@ -298,8 +298,10 @@ const createNodeStats = (props) => {
   const items = [
     h('span', { class: 'node-stats__item' }, [`👤 ${passed}`]),
   ];
-  if (stats?.currently_waiting > 0) {
-    items.push(h('span', { class: 'node-stats__item node-stats__item--waiting' }, [`⏳ ${stats.currently_waiting}`]));
+
+  const waiting = stats?.currently_waiting || 0;
+  if (isWaitNode || waiting > 0) {
+    items.push(h('span', { class: `node-stats__item${waiting > 0 ? ' node-stats__item--waiting' : ''}` }, [`⏳ ${waiting}`]));
   }
 
   return h('div', {
@@ -429,7 +431,7 @@ const WaitNode = {
             h('div', { class: 'node-icon-badge', style: { '--badge-color': props.data?.color || '#F59E0B' } }, '⏱️'),
           ]),
           h(Handle, { type: 'source', position: Position.Right, id: 'output', class: 'flow-handle flow-handle-right' }),
-          createNodeStats(props),
+          createNodeStats(props, true),
         ]
       );
   },
