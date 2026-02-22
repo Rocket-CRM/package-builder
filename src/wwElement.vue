@@ -15,6 +15,11 @@
         </span>
       </div>
       <div class="toolbar__right">
+        <button
+          v-if="workflowMeta.is_active"
+          class="polaris-btn polaris-btn--default"
+          @click="handleBatchRun"
+        >Batch Run</button>
         <button class="polaris-btn polaris-btn--default" @click="handleExit">Exit</button>
         <button class="polaris-btn polaris-btn--primary" @click="openStatusPanel">Update status</button>
       </div>
@@ -172,12 +177,58 @@
             <option :value="false">Draft</option>
           </select>
         </div>
+
+        <div class="polaris-form-field">
+          <label class="polaris-form-field__label">Run mode</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" value="on_event" v-model="pendingRunMode" />
+              <div>
+                <span class="radio-option__label">On Event</span>
+                <span class="radio-option__help">Triggers automatically from CDC events</span>
+              </div>
+            </label>
+            <label class="radio-option">
+              <input type="radio" value="manual_only" v-model="pendingRunMode" />
+              <div>
+                <span class="radio-option__label">Manual Only</span>
+                <span class="radio-option__help">Only runs via Batch Run</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div v-if="pendingStatus" class="polaris-form-field">
+          <label class="batch-checkbox">
+            <input type="checkbox" v-model="batchRunOnSave" />
+            <span>Batch run for matching users</span>
+          </label>
+          <p class="polaris-form-field__help">Find and enroll all users that match the trigger conditions</p>
+        </div>
       </div>
 
       <div class="status-panel__footer">
         <button class="polaris-btn polaris-btn--primary" @click="saveStatus">Save</button>
         <button class="polaris-btn polaris-btn--default" @click="closeStatusPanel">Cancel</button>
       </div>
+    </div>
+
+    <!-- Batch Confirm Dialog -->
+    <div v-if="batchConfirmOpen" class="batch-dialog-overlay" @click.self="closeBatchConfirm">
+      <div class="batch-dialog">
+        <p class="batch-dialog__message">Found <strong>{{ batchMatchingCount.toLocaleString() }}</strong> matching users. Run workflow for all of them?</p>
+        <div class="batch-dialog__actions">
+          <button class="polaris-btn polaris-btn--default" @click="closeBatchConfirm">Cancel</button>
+          <button class="polaris-btn polaris-btn--primary" :disabled="batchDispatching" @click="confirmBatchDispatch">
+            {{ batchDispatching ? 'Dispatching...' : 'Confirm' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div v-if="toastMessage" class="toast" @click="toastMessage = ''">
+      {{ toastMessage }}
     </div>
 
     <!-- User List Popup -->
@@ -967,8 +1018,13 @@ export default {
     const statusPanelOpen = ref(false);
     const pendingStatus = ref(false);
 
+    const pendingRunMode = ref(workflowMeta.value?.run_mode || 'on_event');
+    const batchRunOnSave = ref(false);
+
     const openStatusPanel = () => {
       pendingStatus.value = workflowMeta.value?.is_active || false;
+      pendingRunMode.value = workflowMeta.value?.run_mode || 'on_event';
+      batchRunOnSave.value = false;
       statusPanelOpen.value = true;
     };
 
@@ -978,14 +1034,109 @@ export default {
 
     const saveStatus = () => {
       const newStatus = pendingStatus.value;
-      workflowMeta.value = { ...workflowMeta.value, is_active: newStatus };
+      const newRunMode = pendingRunMode.value;
+      const runBatch = batchRunOnSave.value && newStatus;
+      workflowMeta.value = { ...workflowMeta.value, is_active: newStatus, run_mode: newRunMode };
       updateVariables();
       statusPanelOpen.value = false;
+      batchRunOnSave.value = false;
 
       emit('trigger-event', {
         name: 'status-updated',
-        event: { is_active: newStatus },
+        event: { is_active: newStatus, run_mode: newRunMode, p_run_batch: runBatch },
       });
+
+      if (runBatch) {
+        triggerBatchFromSave();
+      }
+    };
+
+    // ─── Batch Run ───────────────────────────────────────────────
+    const batchConfirmOpen = ref(false);
+    const batchMatchingCount = ref(0);
+    const batchUserIds = ref([]);
+    const batchDispatching = ref(false);
+    const toastMessage = ref('');
+
+    const triggerBatchFromSave = async () => {
+      const wfId = workflowMeta.value?.id;
+      if (!wfId) return;
+      try {
+        const data = await rpc('bff_amp_batch_run', { p_workflow_id: wfId });
+        if (data?.success !== false && data?.matching_users > 0) {
+          batchMatchingCount.value = data.matching_users;
+          batchUserIds.value = data.user_ids || [];
+          batchConfirmOpen.value = true;
+        } else if (data?.matching_users === 0) {
+          toastMessage.value = 'No matching users found (or all already enrolled)';
+          setTimeout(() => { toastMessage.value = ''; }, 4000);
+        }
+      } catch (err) {
+        console.error('[WorkflowBuilder] Batch run failed:', err);
+      }
+    };
+
+    const handleBatchRun = async () => {
+      const wfId = workflowMeta.value?.id;
+      if (!wfId || !workflowMeta.value?.is_active) return;
+      try {
+        toastMessage.value = 'Finding matching users...';
+        const data = await rpc('bff_amp_batch_run', { p_workflow_id: wfId });
+        toastMessage.value = '';
+        if (data?.success !== false && data?.matching_users > 0) {
+          batchMatchingCount.value = data.matching_users;
+          batchUserIds.value = data.user_ids || [];
+          batchConfirmOpen.value = true;
+        } else {
+          toastMessage.value = 'No matching users found (or all already enrolled)';
+          setTimeout(() => { toastMessage.value = ''; }, 4000);
+        }
+      } catch (err) {
+        console.error('[WorkflowBuilder] Batch run failed:', err);
+        toastMessage.value = 'Batch run failed';
+        setTimeout(() => { toastMessage.value = ''; }, 4000);
+      }
+    };
+
+    const confirmBatchDispatch = async () => {
+      const wfId = workflowMeta.value?.id;
+      const merchantId = workflowMeta.value?.merchant_id;
+      if (!wfId || !batchUserIds.value.length) return;
+
+      batchDispatching.value = true;
+      try {
+        const url = supabaseUrlData.value?.replace(/\/+$/, '');
+        const res = await fetch(`${url}/functions/v1/amp-batch-dispatch`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authTokenData.value}`,
+          },
+          body: JSON.stringify({
+            workflow_id: wfId,
+            merchant_id: merchantId,
+            user_ids: batchUserIds.value,
+          }),
+        });
+        const data = await res.json();
+        batchConfirmOpen.value = false;
+        toastMessage.value = `Batch run complete: ${data?.dispatched?.toLocaleString() || batchMatchingCount.value.toLocaleString()} users dispatched`;
+        setTimeout(() => { toastMessage.value = ''; }, 5000);
+      } catch (err) {
+        console.error('[WorkflowBuilder] Batch dispatch failed:', err);
+        toastMessage.value = 'Batch dispatch failed';
+        setTimeout(() => { toastMessage.value = ''; }, 4000);
+      } finally {
+        batchDispatching.value = false;
+        batchUserIds.value = [];
+        batchMatchingCount.value = 0;
+      }
+    };
+
+    const closeBatchConfirm = () => {
+      batchConfirmOpen.value = false;
+      batchUserIds.value = [];
+      batchMatchingCount.value = 0;
     };
 
     // Toolbar handlers
@@ -1910,6 +2061,15 @@ export default {
       handleNameChange,
       handleToolbarSave,
       handleExit,
+      pendingRunMode,
+      batchRunOnSave,
+      batchConfirmOpen,
+      batchMatchingCount,
+      batchDispatching,
+      toastMessage,
+      handleBatchRun,
+      confirmBatchDispatch,
+      closeBatchConfirm,
       userListOpen,
       userListNodeId,
       userListNodeName,
@@ -2671,6 +2831,120 @@ export default {
   &--full-width {
     @include polaris-button-full-width;
   }
+}
+
+// ============================================
+// Batch Run + Radio/Checkbox + Toast
+// ============================================
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p-space-200);
+}
+
+.radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--p-space-200);
+  cursor: pointer;
+  padding: var(--p-space-200);
+  border-radius: var(--p-border-radius-200);
+  transition: background 0.1s;
+
+  &:hover { background: var(--p-color-bg-surface-hover); }
+
+  input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  &__label {
+    display: block;
+    font-size: var(--p-font-size-300);
+    font-weight: var(--p-font-weight-medium);
+    color: var(--p-color-text);
+  }
+
+  &__help {
+    display: block;
+    font-size: var(--p-font-size-275);
+    color: var(--p-color-text-secondary);
+    margin-top: 1px;
+  }
+}
+
+.batch-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--p-space-200);
+  cursor: pointer;
+  font-size: var(--p-font-size-300);
+  color: var(--p-color-text);
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+}
+
+.batch-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.batch-dialog {
+  background: var(--p-color-bg-surface);
+  border-radius: var(--p-border-radius-300);
+  box-shadow: var(--p-shadow-600);
+  padding: var(--p-space-500);
+  max-width: 440px;
+  width: 90%;
+
+  &__message {
+    font-size: var(--p-font-size-325);
+    color: var(--p-color-text);
+    margin: 0 0 var(--p-space-400);
+    line-height: 1.5;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--p-space-200);
+  }
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #303030;
+  color: #FFFFFF;
+  padding: 10px 20px;
+  border-radius: var(--p-border-radius-200);
+  font-size: var(--p-font-size-300);
+  box-shadow: var(--p-shadow-400);
+  z-index: 300;
+  cursor: pointer;
+  animation: toast-in 0.2s ease;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 // Responsive
