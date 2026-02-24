@@ -121,16 +121,16 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--p-color-bg-surface);
+  background: transparent;
   font-family: var(--p-font-family-sans);
+  padding: 0 var(--p-space-500);
 }
 
 .workflow-list__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--p-space-500) var(--p-space-600);
-  border-bottom: 1px solid var(--p-color-border);
+  padding: var(--p-space-500) 0;
   flex-shrink: 0;
 }
 
@@ -154,6 +154,9 @@ export default {
   padding: var(--p-space-800);
   color: var(--p-color-text-secondary);
   font-size: var(--p-font-size-300);
+  background: var(--p-color-bg-surface);
+  border: 1px solid var(--p-color-border);
+  border-radius: var(--p-border-radius-300);
 }
 
 .spinner {
@@ -172,6 +175,9 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--p-color-bg-surface);
+  border: 1px solid var(--p-color-border);
+  border-radius: var(--p-border-radius-300);
 }
 
 .empty-state {
@@ -197,6 +203,9 @@ export default {
 .workflow-list__table-wrap {
   flex: 1;
   overflow-y: auto;
+  background: var(--p-color-bg-surface);
+  border: 1px solid var(--p-color-border);
+  border-radius: var(--p-border-radius-300);
 }
 
 .wf-table {
@@ -217,6 +226,9 @@ export default {
     background: var(--p-color-bg-surface);
     text-transform: uppercase;
     letter-spacing: 0.3px;
+
+    &:first-child { border-top-left-radius: var(--p-border-radius-300); }
+    &:last-child { border-top-right-radius: var(--p-border-radius-300); }
   }
 
   td {
@@ -225,6 +237,8 @@ export default {
     border-bottom: 1px solid var(--p-color-border-subdued);
     vertical-align: middle;
   }
+
+  tbody tr:last-child td { border-bottom: none; }
 
   &__row {
     cursor: pointer;
