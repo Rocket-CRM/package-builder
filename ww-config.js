@@ -371,7 +371,6 @@ export default {
                 type: 'TextSelect',
                 options: {
                   options: [
-                    { value: 'trigger', label: 'Trigger' },
                     { value: 'condition', label: 'Condition' },
                     { value: 'message', label: 'Message' },
                     { value: 'wait', label: 'Wait' },

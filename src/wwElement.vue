@@ -76,11 +76,11 @@
       <div v-else-if="configPanelOpen" class="config-panel">
         <div class="config-panel__header">
           <div class="config-panel__header-left">
-          <span class="config-panel__icon" :class="`config-panel__icon--${isEditingTrigger ? 'trigger' : editingNodeType}`">
-            {{ isEditingTrigger ? '🎯' : (nodeIconMap[editingNodeType] || '⚙️') }}
+          <span class="config-panel__icon" :class="`config-panel__icon--${editingNodeType}`">
+            {{ nodeIconMap[editingNodeType] || '⚙️' }}
             </span>
             <div class="config-panel__header-info">
-              <span class="config-panel__type-label">{{ isEditingTrigger ? 'Trigger' : (nodeTypeLabels[editingNodeType] || 'Node') }}</span>
+              <span class="config-panel__type-label">{{ nodeTypeLabels[editingNodeType] || 'Node' }}</span>
               <input
                 v-model="editingConfig.label"
                 class="config-panel__title-input"
@@ -95,15 +95,8 @@
         </div>
 
         <div class="config-panel__content">
-          <TriggerConfig
-            v-if="isEditingTrigger"
-            :config="editingConfig"
-            :collections="collectionsData"
-            :audiences="audiencesData"
-            @update="handleConfigUpdate"
-          />
           <ConditionConfig
-            v-else-if="editingNodeType === 'condition'"
+            v-if="editingNodeType === 'condition'"
             :config="editingConfig"
             :collections="collectionsData"
             @update="handleConfigUpdate"
@@ -138,6 +131,9 @@
             v-else-if="editingNodeType === 'agent'"
             :config="editingConfig"
             :agents="agentsData"
+            :supabase-url="supabaseUrlData"
+            :supabase-anon-key="supabaseAnonKeyData"
+            :auth-token="authTokenData"
             @update="handleConfigUpdate"
           />
 
@@ -309,7 +305,6 @@ import WaitConfig from './components/WaitConfig.vue';
 import ApiConfig from './components/ApiConfig.vue';
 import ActionConfig from './components/ActionConfig.vue';
 import AgentConfig from './components/AgentConfig.vue';
-import TriggerConfig from './components/TriggerConfig.vue';
 import WorkflowList from './components/WorkflowList.vue';
 import NodeUserList from './components/NodeUserList.vue';
 import WorkflowSettings from './components/WorkflowSettings.vue';
@@ -429,7 +424,6 @@ const nodeIconMap = {
   wait: '⏱️',
   api: '🔌',
   action: '⚡',
-  trigger: '🎯',
   agent: '🤖',
   test: '🧪',
 };
@@ -440,7 +434,6 @@ const nodeTypeLabels = {
   wait: 'Wait',
   api: 'API Call',
   action: 'Action',
-  trigger: 'Trigger',
   agent: 'Agent',
   test: 'Test',
 };
@@ -452,13 +445,12 @@ const ConditionNode = {
   setup(props) {
     const showEdit = computed(() => props.data?.showEditAction !== false);
     const showDelete = computed(() => props.data?.showDeleteAction !== false);
-    const isTrigger = computed(() => props.data?.isTrigger === true);
     
     return () =>
       h(
         'div',
         {
-          class: ['flow-node', 'condition-node', { selected: props.selected, 'trigger-node': isTrigger.value }],
+          class: ['flow-node', 'condition-node', { selected: props.selected }],
           style: { '--node-color': props.data?.color || '#3B82F6' },
         },
         [
@@ -466,9 +458,9 @@ const ConditionNode = {
           h(Handle, { type: 'target', position: Position.Left, id: 'input', class: 'flow-handle flow-handle-left' }),
           createNodeBody(
             props.data?.label || 'Condition',
-            isTrigger.value ? '🎯' : '🔀',
+            '🔀',
             props.data?.color || '#3B82F6',
-            isTrigger.value ? 'Trigger' : null
+            null
           ),
           h(Handle, {
             type: 'source',
@@ -603,35 +595,6 @@ const ActionNode = {
   },
 };
 
-// Trigger node (for your database "trigger" type) - only has output (right side)
-const TriggerNode = {
-  name: 'TriggerNode',
-  props: ['id', 'data', 'selected'],
-  setup(props) {
-    const showEdit = computed(() => props.data?.showEditAction !== false);
-    const showDelete = computed(() => props.data?.showDeleteAction !== false);
-    
-    return () =>
-      h(
-        'div',
-        {
-          class: ['flow-node', 'trigger-node', { selected: props.selected }],
-          style: { '--node-color': props.data?.color || '#6366F1' },
-        },
-        [
-          createNodeActions(props, showEdit.value, showDelete.value),
-          h('div', { class: 'node-body' }, [
-            h('span', { class: 'node-label' }, props.data?.label || 'Trigger'),
-            h('div', { class: 'node-icon-badge', style: { '--badge-color': props.data?.color || '#6366F1' } }, '🎯'),
-          ]),
-          h(Handle, { type: 'source', position: Position.Right, id: 'output', class: 'flow-handle flow-handle-right' }),
-          h(Handle, { type: 'source', position: Position.Right, id: 'default', class: 'flow-handle flow-handle-right', style: { top: '70%' } }),
-          createNodeStats(props),
-        ]
-      );
-  },
-};
-
 const TestNode = {
   name: 'TestNode',
   props: ['id', 'data', 'selected'],
@@ -713,7 +676,6 @@ export default {
     ApiConfig,
     ActionConfig,
     AgentConfig,
-    TriggerConfig,
     WorkflowList,
     NodeUserList,
     WorkflowSettings,
@@ -744,7 +706,6 @@ export default {
       wait: markRaw(WaitNode),
       api: markRaw(ApiNode),
       action: markRaw(ActionNode),
-      trigger: markRaw(TriggerNode),
       agent: markRaw(AgentNode),
       test: markRaw(TestNode),
     };
@@ -783,6 +744,13 @@ export default {
           { type: 'action', subType: 'assign_persona', label: 'Assign Persona', desc: 'Set the user persona', icon: '👤', color: '#F59E0B' },
           { type: 'action', subType: 'assign_earn_factor', label: 'Earn Factor', desc: 'Assign a time-limited earn factor', icon: '✨', color: '#F59E0B' },
           { type: 'action', subType: 'submit_form', label: 'Submit Form', desc: 'Auto-submit a form for the user', icon: '📋', color: '#F59E0B' },
+        ],
+      },
+      {
+        label: 'Audience',
+        nodes: [
+          { type: 'action', subType: 'add_to_audience', label: 'Add to Audience', desc: 'Add the user to an audience', icon: '👥', color: '#6366F1' },
+          { type: 'action', subType: 'remove_from_audience', label: 'Remove from Audience', desc: 'Remove the user from an audience', icon: '🚪', color: '#F59E0B' },
         ],
       },
       {
@@ -1059,26 +1027,7 @@ export default {
       const config = editingConfig.value;
       const nodeType = editingNodeType.value;
 
-      if (nodeType === 'trigger' || (nodeType === 'condition' && editingNodeIdLocal.value === triggerNodeId.value)) {
-        const et = config?.entry_type || 'condition';
-        if (et === 'audience') {
-          if (!config?.audience_id) errors.push('Audience is required');
-        } else {
-          const groups = config?.groups || [];
-          if (groups.length === 0) errors.push('At least one condition group is required');
-          groups.forEach((group, gIdx) => {
-            if (!group?.collection) errors.push(`Group ${gIdx + 1}: Collection is required`);
-            const groupType = group?.type || 'simple';
-            if (groupType === 'simple') {
-              const conditions = group?.conditions || [];
-              if (conditions.length === 0) errors.push(`Group ${gIdx + 1}: At least one condition is required`);
-              conditions.forEach((condition, cIdx) => {
-                if (!condition?.field) errors.push(`Group ${gIdx + 1}, Condition ${cIdx + 1}: Field is required`);
-              });
-            }
-          });
-        }
-      } else if (nodeType === 'condition') {
+      if (nodeType === 'condition') {
         const groups = config?.groups || [];
         if (groups.length === 0) errors.push('At least one condition group is required');
         groups.forEach((group, gIdx) => {
@@ -1414,16 +1363,10 @@ export default {
     // Computed styles
     const isReadOnly = computed(() => props.content?.readOnly === true);
 
-    const triggerNodeId = computed(() => {
-      const triggerTypeNode = nodes.value.find(n => n.type === 'trigger');
-      if (triggerTypeNode) return triggerTypeNode.id;
+    const entryNodeId = computed(() => {
       const targetIds = new Set(edges.value.map(e => e.target));
       const entry = nodes.value.find(n => n.type === 'condition' && !targetIds.has(n.id));
       return entry?.id || '';
-    });
-
-    const isEditingTrigger = computed(() => {
-      return editingNodeIdLocal.value && editingNodeIdLocal.value === triggerNodeId.value;
     });
 
     const rootStyle = computed(() => ({
@@ -1446,7 +1389,6 @@ export default {
     // Get node color based on type
     const getNodeColor = (type) => {
       const colors = {
-        trigger: props.content?.triggerNodeColor || '#6366F1',
         condition: props.content?.conditionNodeColor || '#3B82F6',
         action: props.content?.actionNodeColor || '#EC4899',
         message: props.content?.messageNodeColor || '#10B981',
@@ -1473,6 +1415,8 @@ export default {
       send_line: { action_type: 'send_line', channel: 'line', content: '', json_content: null },
       send_sms: { action_type: 'send_sms', channel: 'sms', message: '' },
       api_call: { action_type: 'api_call', method: 'POST', url: '', body: null },
+      add_to_audience: { action_type: 'add_to_audience', audience_id: '' },
+      remove_from_audience: { action_type: 'remove_from_audience', audience_id: '' },
     };
 
     const getDefaultNodeData = (type, subType = null, label = null) => {
@@ -1481,7 +1425,6 @@ export default {
       }
 
       const defaults = {
-        trigger: { label: 'Entry Trigger', entry_type: 'condition', match: 'all', groups: [] },
         condition: { label: 'New Condition', groups_operator: 'AND', groups: [] },
         action: { label: 'New Action', action_type: null },
         message: { label: 'New Message', channel: null, template_id: null, subject: '', content: '', json_content: null },
@@ -1530,7 +1473,7 @@ export default {
     
     const handleNodeDelete = (nodeId) => {
       if (isReadOnly.value) return;
-      if (nodeId === triggerNodeId.value) return;
+      if (nodeId === entryNodeId.value) return;
       
       const node = nodes.value.find(n => n.id === nodeId);
       if (!node) return;
@@ -1571,7 +1514,15 @@ export default {
     // - node_name (DB field) or node_config.label (old format)
     // - from_node_id/to_node_id (DB fields) or source/target (Vue Flow format)
     const dbToVueFlow = (dbNodes, dbEdges) => {
-      const vfNodes = (dbNodes || []).map((node) => {
+      const filteredNodes = (dbNodes || []).filter(n => n?.node_type !== 'trigger');
+      const triggerIds = new Set((dbNodes || []).filter(n => n?.node_type === 'trigger').map(n => n?.id));
+      const filteredEdges = (dbEdges || []).filter(e => {
+        const fromId = e?.from_node_id || e?.source || '';
+        const toId = e?.to_node_id || e?.target || '';
+        return !triggerIds.has(fromId) && !triggerIds.has(toId);
+      });
+
+      const vfNodes = filteredNodes.map((node) => {
         const nodeType = node?.node_type || 'message';
         // Get label from node_name (DB) or node_config.label (fallback)
         const label = node?.node_name || node?.node_config?.label || `New ${nodeType}`;
@@ -1597,7 +1548,7 @@ export default {
         };
       });
 
-      const vfEdges = (dbEdges || []).map((edge) => ({
+      const vfEdges = filteredEdges.map((edge) => ({
         id: edge?.id || crypto.randomUUID(),
         // Handle both DB format (from_node_id/to_node_id) and Vue Flow format (source/target)
         source: edge?.from_node_id || edge?.source || '',
@@ -1680,9 +1631,13 @@ export default {
         edge_label: edge?.label || null,
       }));
 
-      // Set full workflow data for API
+      const wfMeta = workflowMeta.value || {};
       setWorkflowData({
-        p_workflow: workflowMeta.value || {},
+        p_workflow: {
+          ...wfMeta,
+          scope: wfMeta.scope || 'user',
+          domain: wfMeta.domain || 'campaign',
+        },
         p_nodes,
         p_edges,
       });
@@ -1766,9 +1721,13 @@ export default {
         edge_label: edge?.label || null,
       }));
 
-      // Full payload for API
+      const wfMeta = workflowMeta.value || {};
       const payload = {
-        p_workflow: workflowMeta.value || {},
+        p_workflow: {
+          ...wfMeta,
+          scope: wfMeta.scope || 'user',
+          domain: wfMeta.domain || 'campaign',
+        },
         p_nodes,
         p_edges,
       };
@@ -2019,14 +1978,14 @@ export default {
       if (isReadOnly.value) return;
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
-        const tid = triggerNodeId.value;
-        const selectedNodes = nodes.value.filter((n) => n.selected && n.id !== tid);
+        const eid = entryNodeId.value;
+        const selectedNodes = nodes.value.filter((n) => n.selected && n.id !== eid);
         const selectedEdges = edges.value.filter((e) => e.selected);
 
         if (selectedNodes.length > 0 || selectedEdges.length > 0) {
           const selectedNodeIds = new Set(selectedNodes.map((n) => n.id));
 
-          nodes.value = nodes.value.filter((n) => !n.selected || n.id === tid);
+          nodes.value = nodes.value.filter((n) => !n.selected || n.id === eid);
           edges.value = edges.value.filter(
             (e) =>
               !e.selected &&
@@ -2089,13 +2048,12 @@ export default {
       { immediate: true, deep: true }
     );
 
-    // Auto-create trigger node on empty workflows after component is mounted
-    const autoTriggerCreated = ref(false);
+    const autoEntryCreated = ref(false);
     onMounted(() => {
       setTimeout(() => {
-        if (nodes.value.length === 0 && !isReadOnly.value && !autoTriggerCreated.value) {
-          autoTriggerCreated.value = true;
-          const newNode = addNode('trigger', 250, 200, null, 'Entry Trigger');
+        if (nodes.value.length === 0 && !isReadOnly.value && !autoEntryCreated.value) {
+          autoEntryCreated.value = true;
+          const newNode = addNode('condition', 250, 200, null, 'Entry Condition');
           if (newNode) {
             nodes.value = nodes.value.map(n => {
               if (n.id === newNode.id) {
@@ -2111,7 +2069,6 @@ export default {
           }
         }
       }, 300);
-
     });
 
     // Fetch node stats when workflow ID is available, poll every 30s
@@ -2150,7 +2107,7 @@ export default {
       }
     );
 
-    // Watch for color, action, and trigger changes to update existing nodes
+    // Watch for color, action, and entry node changes to update existing nodes
     watch(
       () => [
         props.content?.conditionNodeColor,
@@ -2160,18 +2117,17 @@ export default {
         props.content?.agentNodeColor,
         props.content?.showEditAction,
         props.content?.showDeleteAction,
-        triggerNodeId.value,
+        entryNodeId.value,
       ],
       () => {
-        const tid = triggerNodeId.value;
+        const eid = entryNodeId.value;
         nodes.value = nodes.value.map((node) => ({
           ...node,
           data: {
             ...node.data,
             color: getNodeColor(node.type),
             showEditAction: showEditAction.value,
-            showDeleteAction: node.id === tid ? false : showDeleteAction.value,
-            isTrigger: node.id === tid,
+            showDeleteAction: node.id === eid ? false : showDeleteAction.value,
             stats: nodeStatsMap.value[node.id] || node.data?.stats || null,
             onEdit: handleNodeEdit,
             onDelete: handleNodeDelete,
@@ -2239,8 +2195,7 @@ export default {
       editingConfig,
       editingNodeType,
       editingNodeIdLocal,
-      triggerNodeId,
-      isEditingTrigger,
+      entryNodeId,
       nodeTypeLabels,
       nodeIconMap,
       collectionsData,
@@ -2902,7 +2857,6 @@ export default {
   flex-shrink: 0;
 
   &--settings { background: #F3F4F6; }
-  &--trigger { background: #E0E7FF; }
   &--condition { background: #DBEAFE; }
   &--message { background: #D1FAE5; }
   &--wait { background: #FEF3C7; }

@@ -87,7 +87,8 @@ export default {
   emits: ['select', 'create', 'toggle-status'],
   setup(props) {
     const safeWorkflows = computed(() => {
-      return Array.isArray(props.workflows) ? props.workflows : [];
+      const list = Array.isArray(props.workflows) ? props.workflows : [];
+      return list.filter(w => !w?.scope || w?.scope === 'user');
     });
 
     const formatDate = (iso) => {
