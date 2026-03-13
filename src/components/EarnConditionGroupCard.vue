@@ -24,30 +24,45 @@
       </span>
     </div>
     <div class="ec-pill__right">
-      <button class="ec-pill__action" @click.stop="$emit('add-condition', group)">+ Add Condition</button>
+      <button class="ec-pill__action" @click.stop="$emit('add-condition', group)">
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        Add Condition
+      </button>
+      <span class="ec-pill__sep"></span>
       <button class="ec-pill__icon-btn" @click.stop="$emit('edit-group', group)" title="Edit">
-        <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" fill="currentColor"/></svg>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" fill="currentColor"/></svg>
+      </button>
+      <button class="ec-pill__icon-btn ec-pill__icon-btn--chevron" @click.stop="$emit('select-group', group, displayKey)">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+          <path v-if="isActive" d="M6 13l4-4 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path v-else d="M6 7l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </button>
     </div>
   </div>
 
-  <!-- Detail popup below -->
+  <!-- Detail table below -->
   <transition name="expand">
     <div v-if="isActive && conditions?.length" class="ec-detail">
       <table class="ec-detail__table">
         <thead>
           <tr>
-            <th>TYPE</th>
-            <th>ITEMS</th>
-            <th>LOGIC</th>
-            <th>THRESHOLD TYPE</th>
-            <th>EXCESS</th>
+            <th class="ec-detail__th--type">TYPE</th>
+            <th class="ec-detail__th--items">ITEMS</th>
+            <th class="ec-detail__th--logic">LOGIC</th>
+            <th class="ec-detail__th--threshold">THRESHOLD TYPE</th>
+            <th class="ec-detail__th--excess">EXCESS</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="cond in conditions" :key="cond?.id">
-            <td>{{ formatEntity(cond?.entity || cond?.filter_type) }}</td>
-            <td><span class="ec-detail__items">{{ getItemCount(cond) }} <span class="ec-detail__items-dot"></span></span></td>
+            <td class="ec-detail__td--type">{{ formatEntity(cond?.entity || cond?.filter_type) }}</td>
+            <td class="ec-detail__td--items">
+              <span class="ec-detail__items">
+                {{ getItemCount(cond) }}
+                <span class="ec-detail__items-dot"></span>
+              </span>
+            </td>
             <td>{{ cond?.operator || 'OR' }}</td>
             <td>{{ formatThreshold(cond?.threshold_unit) }}</td>
             <td>{{ cond?.apply_to_excess_only ? 'Yes' : 'No' }}</td>
@@ -80,7 +95,7 @@ export default {
   setup(props) {
     const conditionCount = computed(() => props.conditions?.length || 0);
 
-    const iconColors = ['#2C6ECB', '#D82C0D', '#8A6116', '#008060', '#6D28D9', '#0D9488'];
+    const iconColors = ['#0262E0', '#D82C0D', '#5E4200', '#29845A', '#6D28D9', '#0D9488'];
     const iconStyle = computed(() => {
       let hash = 0;
       const str = props.group?.id || '';
@@ -106,8 +121,8 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 44px;
-  padding: 0 var(--p-space-300) 0 var(--p-space-400);
+  min-height: 48px;
+  padding: var(--p-space-300) var(--p-space-300) var(--p-space-300) var(--p-space-400);
   background: var(--p-color-bg-surface);
   border: 1px solid var(--p-color-border);
   border-radius: var(--p-border-radius-200);
@@ -121,8 +136,8 @@ export default {
   }
 
   &--active {
-    border-color: var(--p-color-focus-ring);
-    box-shadow: 0 0 0 1px var(--p-color-focus-ring);
+    border-color: var(--p-color-border-info);
+    box-shadow: 0 0 0 1px var(--p-color-border-info);
   }
 
   &__dot {
@@ -133,7 +148,7 @@ export default {
     width: 10px;
     height: 10px;
     border-radius: var(--p-border-radius-full);
-    background: var(--p-color-border);
+    background: var(--p-color-text-info);
     border: 2px solid var(--p-color-bg);
   }
 
@@ -146,9 +161,9 @@ export default {
   }
 
   &__icon {
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
+    width: 25px;
+    height: 25px;
+    min-width: 25px;
     border-radius: var(--p-border-radius-100);
     display: flex;
     align-items: center;
@@ -156,9 +171,7 @@ export default {
   }
 
   &__name {
-    font-size: var(--p-font-size-325);
-    font-weight: var(--p-font-weight-medium);
-    color: var(--p-color-text);
+    @include polaris-text-subtitle-sm;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -168,7 +181,7 @@ export default {
     font-size: 10px;
     font-weight: var(--p-font-weight-bold);
     color: var(--p-color-text-info);
-    background: var(--p-color-bg-fill-info-secondary);
+    background: var(--p-color-bg-fill-brand-secondary);
     padding: 1px 5px;
     border-radius: var(--p-border-radius-full);
     flex-shrink: 0;
@@ -180,8 +193,8 @@ export default {
     gap: 2px;
     font-size: 10px;
     font-weight: var(--p-font-weight-medium);
-    color: var(--p-color-text-secondary);
-    background: var(--p-color-bg-fill);
+    color: var(--p-color-text-info);
+    background: var(--p-color-bg-fill-brand-secondary);
     padding: 1px 5px;
     border-radius: var(--p-border-radius-full);
     flex-shrink: 0;
@@ -196,10 +209,15 @@ export default {
 
   &__action {
     @include polaris-button-plain;
-    font-size: 11px;
+    font-size: var(--p-font-size-275);
     white-space: nowrap;
     padding: 2px 6px;
     min-height: auto;
+    gap: 2px;
+  }
+
+  &__sep {
+    @include polaris-separator-dot;
   }
 
   &__icon-btn {
@@ -214,12 +232,17 @@ export default {
     color: var(--p-color-icon);
     cursor: pointer;
     &:hover { background: var(--p-color-bg-fill-transparent-hover); }
+
+    &--chevron {
+      background: var(--p-color-border);
+      border-radius: var(--p-border-radius-150);
+      &:hover { background: var(--p-color-border-hover); }
+    }
   }
 }
 
 .ec-detail {
   margin-top: var(--p-space-050);
-  margin-left: var(--p-space-400);
   background: var(--p-color-bg-surface);
   border: 1px solid var(--p-color-border);
   border-radius: var(--p-border-radius-200);
@@ -227,10 +250,10 @@ export default {
 
   &__table {
     @include polaris-table;
-    font-size: var(--p-font-size-275);
+    font-size: var(--p-font-size-300);
 
     th {
-      padding: var(--p-space-150) var(--p-space-200);
+      padding: var(--p-space-100) var(--p-space-200);
       font-size: 10px;
       font-weight: var(--p-font-weight-bold);
       text-transform: uppercase;
@@ -238,24 +261,33 @@ export default {
       color: var(--p-color-text-secondary);
       background: var(--p-color-bg-surface-secondary);
       border-bottom: 1px solid var(--p-color-border);
-      text-align: left;
+      text-align: center;
     }
 
     td {
-      padding: var(--p-space-150) var(--p-space-200);
+      padding: var(--p-space-100) var(--p-space-200);
       color: var(--p-color-text);
       border-bottom: 1px solid var(--p-color-border);
-      font-size: var(--p-font-size-275);
+      font-size: var(--p-font-size-300);
+      text-align: center;
     }
 
     tr:last-child td { border-bottom: none; }
   }
 
+  &__th--type { width: 91px; text-align: left !important; }
+  &__th--items { width: 64px; }
+  &__th--logic { width: 70px; }
+  &__th--threshold { width: 165px; }
+  &__th--excess { width: auto; }
+  &__td--type { text-align: left !important; }
+  &__td--items { text-align: center; }
+
   &__items {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    color: var(--p-color-text-critical);
+    color: #DA3590;
     font-weight: var(--p-font-weight-medium);
   }
 
@@ -263,7 +295,7 @@ export default {
     width: 6px;
     height: 6px;
     border-radius: var(--p-border-radius-full);
-    border: 1.5px solid var(--p-color-text-critical);
+    border: 1.5px solid #DA3590;
   }
 }
 

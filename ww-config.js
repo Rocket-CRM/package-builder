@@ -144,7 +144,7 @@ export default {
       label: { en: 'Left Column Width' },
       type: 'Length',
       section: 'style',
-      defaultValue: '420px',
+      defaultValue: '580px',
       bindable: true,
       /* wwEditor:start */
       bindingValidation: {
@@ -157,7 +157,7 @@ export default {
       label: { en: 'Right Column Width' },
       type: 'Length',
       section: 'style',
-      defaultValue: '420px',
+      defaultValue: '580px',
       bindable: true,
       /* wwEditor:start */
       bindingValidation: {

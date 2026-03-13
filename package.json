@@ -7,7 +7,7 @@
     "serve": "weweb serve"
   },
   "dependencies": {
-    "polaris-weweb-styles": "^2.1.0"
+    "polaris-weweb-styles": "github:rangwan-rocket/polaris-weweb-styles"
   },
   "devDependencies": {
     "@weweb/cli": "latest"
