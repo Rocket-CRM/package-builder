@@ -16,15 +16,12 @@
       <div v-if="loadingFactorGroups" class="es__loading"><div class="es__spinner"></div></div>
 
       <template v-else>
-        <!-- ═══ LINKED GROUPS (top section) ═══ -->
+        <!-- ═══ LINKED GROUPS (top) ═══ -->
         <div v-for="entry in linkedGroupEntries" :key="entry.group.id" class="es__group-row">
           <div class="es__group-left">
             <div class="es__group-sidebar" :style="sidebarStyle(entry.group.id)">
               <div class="es__sidebar-accent" :style="{ background: getGroupColor(entry.group.id) }"></div>
               <div class="es__sidebar-inner">
-                <div class="es__sidebar-icon" :style="{ background: getGroupColor(entry.group.id) }">
-                  <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="7" height="5" rx="1" fill="#fff" opacity=".8"/><rect x="2" y="11" width="7" height="5" rx="1" fill="#fff" opacity=".6"/><rect x="11" y="4" width="7" height="5" rx="1" fill="#fff" opacity=".4"/><rect x="11" y="11" width="7" height="5" rx="1" fill="#fff" opacity=".3"/></svg>
-                </div>
                 <span class="es__sidebar-name">{{ entry.group.name || 'Untitled Group' }}</span>
                 <button class="es__sidebar-action" @click="handleAddFactor(entry.group.id)" title="Add earn factor">
                   <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
@@ -41,8 +38,8 @@
                 <div class="es__card-accent" :style="{ background: getGroupColor(f.earn_factor_group_id) }"></div>
                 <div class="es__card-body">
                   <div class="es__card-icon" :class="f.target_currency === 'ticket' ? 'es__card-icon--credit' : 'es__card-icon--points'">
-                    <svg v-if="f.earn_factor_type === 'rate'" width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.39 4.84L17.27 7.6l-3.64 3.54.86 5.01L10 13.77l-4.49 2.36.86-5L2.73 7.6l4.88-.76L10 2z" fill="currentColor"/></svg>
-                    <svg v-else width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3L12.5 8H17L13.5 11.5L15 17L10 14L5 17L6.5 11.5L3 8H7.5L10 3Z" fill="currentColor"/></svg>
+                    <svg v-if="f.earn_factor_type === 'rate'" width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 3h6l8 8-6 6-8-8V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>
+                    <svg v-else width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M11 2L4 11h5l-1 7 7-9h-5l1-7z" fill="currentColor"/></svg>
                   </div>
                   <div class="es__card-info">
                     <div class="es__card-name">{{ getFactorTitle(f) }}</div>
@@ -65,26 +62,50 @@
                 <div v-if="f._condGroupInfo"
                   :data-cg-key="f._dk"
                   class="es__card es__card--condition"
-                  @click="handleEditConditionGroup(f._condGroupInfo.group)">
+                  :class="{ 'es__card--expanded': expandedConds[f._dk] }">
                   <div class="es__card-dot-indicator"></div>
-                  <div class="es__card-body">
-                    <div class="es__cg-icon" :style="cgIconStyle(f._condGroupInfo.group?.id)">
-                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="5" height="14" rx="1.5" fill="currentColor" opacity=".7"/><rect x="10" y="6" width="5" height="11" rx="1.5" fill="currentColor" opacity=".5"/></svg>
-                    </div>
-                    <div class="es__card-info">
-                      <div class="es__card-name">{{ f._condGroupInfo.group?.name || 'Untitled' }}</div>
-                      <div class="es__card-sub">
-                        <span>{{ f._condGroupInfo.conditions?.length || 0 }} condition{{ (f._condGroupInfo.conditions?.length || 0) !== 1 ? 's' : '' }}</span>
-                        <template v-if="f._condGroupInfo.linkedCount > 0">
-                          <span class="es__card-dot-sep"></span>
-                          <span>{{ f._condGroupInfo.linkedCount }} linked</span>
-                        </template>
+                  <div class="es__cond-wrap">
+                    <div class="es__cond-header" @click="handleEditConditionGroup(f._condGroupInfo.group)">
+                      <div class="es__cg-icon" :style="cgIconStyle(f._condGroupInfo.group?.id)">
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
                       </div>
+                      <div class="es__card-info">
+                        <div class="es__card-name">{{ f._condGroupInfo.group?.name || 'Untitled' }}</div>
+                        <div class="es__card-sub">
+                          <span>{{ f._condGroupInfo.conditions?.length || 0 }} condition{{ (f._condGroupInfo.conditions?.length || 0) !== 1 ? 's' : '' }}</span>
+                          <template v-if="f._condGroupInfo.linkedCount > 0">
+                            <span class="es__card-dot-sep"></span>
+                            <span>{{ f._condGroupInfo.linkedCount }} linked</span>
+                          </template>
+                        </div>
+                      </div>
+                      <button class="es__expand-btn" @click.stop="toggleCondExpand(f._dk)"
+                        :class="{ 'es__expand-btn--open': expandedConds[f._dk] }">
+                        <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M6 12.5l4-5 4 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </button>
                     </div>
-                    <button class="es__link-btn" @click.stop="handleEditConditionGroup(f._condGroupInfo.group)">+ Add Condition</button>
-                    <button class="es__card-edit" @click.stop="handleEditConditionGroup(f._condGroupInfo.group)">
-                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" fill="currentColor"/></svg>
-                    </button>
+                    <div v-if="expandedConds[f._dk] && f._condGroupInfo.conditions?.length" class="es__cond-detail">
+                      <table class="es__cond-table">
+                        <thead>
+                          <tr>
+                            <th>Type</th>
+                            <th>Items</th>
+                            <th>Logic</th>
+                            <th>Threshold type</th>
+                            <th>Excess</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(cond, ci) in f._condGroupInfo.conditions" :key="ci">
+                            <td>{{ formatEntity(cond?.entity) }}</td>
+                            <td><span class="es__items-badge">{{ cond?.entity_ids?.length || 0 }}</span></td>
+                            <td>{{ cond?.operator || '-' }}</td>
+                            <td>{{ formatThreshold(cond?.threshold_unit) }}</td>
+                            <td>{{ cond?.apply_to_excess_only ? 'Yes' : 'No' }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -96,16 +117,11 @@
         <template v-if="hasUnlinkedSection">
           <div class="es__divider"><span>Unlinked</span></div>
           <div class="es__unlinked-row">
-            <!-- Left: unlinked groups (with factors + empty) -->
             <div class="es__unlinked-left">
-              <!-- Groups with unlinked factors -->
               <div v-for="entry in unlinkedGroupsWithFactors" :key="entry.group.id" class="es__unlinked-group">
                 <div class="es__group-sidebar" :style="sidebarStyle(entry.group.id)">
                   <div class="es__sidebar-accent" :style="{ background: getGroupColor(entry.group.id) }"></div>
                   <div class="es__sidebar-inner">
-                    <div class="es__sidebar-icon" :style="{ background: getGroupColor(entry.group.id) }">
-                      <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="7" height="5" rx="1" fill="#fff" opacity=".8"/><rect x="2" y="11" width="7" height="5" rx="1" fill="#fff" opacity=".6"/><rect x="11" y="4" width="7" height="5" rx="1" fill="#fff" opacity=".4"/><rect x="11" y="11" width="7" height="5" rx="1" fill="#fff" opacity=".3"/></svg>
-                    </div>
                     <span class="es__sidebar-name">{{ entry.group.name || 'Untitled Group' }}</span>
                     <button class="es__sidebar-action" @click="handleAddFactor(entry.group.id)" title="Add earn factor">
                       <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
@@ -122,8 +138,8 @@
                     <div class="es__card-accent" :style="{ background: getGroupColor(f.earn_factor_group_id) }"></div>
                     <div class="es__card-body">
                       <div class="es__card-icon" :class="f.target_currency === 'ticket' ? 'es__card-icon--credit' : 'es__card-icon--points'">
-                        <svg v-if="f.earn_factor_type === 'rate'" width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.39 4.84L17.27 7.6l-3.64 3.54.86 5.01L10 13.77l-4.49 2.36.86-5L2.73 7.6l4.88-.76L10 2z" fill="currentColor"/></svg>
-                        <svg v-else width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3L12.5 8H17L13.5 11.5L15 17L10 14L5 17L6.5 11.5L3 8H7.5L10 3Z" fill="currentColor"/></svg>
+                        <svg v-if="f.earn_factor_type === 'rate'" width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 3h6l8 8-6 6-8-8V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>
+                        <svg v-else width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M11 2L4 11h5l-1 7 7-9h-5l1-7z" fill="currentColor"/></svg>
                       </div>
                       <div class="es__card-info">
                         <div class="es__card-name">{{ getFactorTitle(f) }}</div>
@@ -141,14 +157,10 @@
                 </div>
               </div>
 
-              <!-- Empty groups listed like the others (sidebar only, no cards) -->
               <div v-for="entry in emptyGroups" :key="entry.group.id" class="es__unlinked-group es__unlinked-group--empty">
                 <div class="es__group-sidebar" :style="sidebarStyle(entry.group.id)">
                   <div class="es__sidebar-accent" :style="{ background: getGroupColor(entry.group.id) }"></div>
                   <div class="es__sidebar-inner">
-                    <div class="es__sidebar-icon" :style="{ background: getGroupColor(entry.group.id) }">
-                      <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="7" height="5" rx="1" fill="#fff" opacity=".8"/><rect x="2" y="11" width="7" height="5" rx="1" fill="#fff" opacity=".6"/><rect x="11" y="4" width="7" height="5" rx="1" fill="#fff" opacity=".4"/><rect x="11" y="11" width="7" height="5" rx="1" fill="#fff" opacity=".3"/></svg>
-                    </div>
                     <span class="es__sidebar-name">{{ entry.group.name || 'Untitled Group' }}</span>
                     <button class="es__sidebar-action" @click="handleAddFactor(entry.group.id)" title="Add earn factor">
                       <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
@@ -161,27 +173,44 @@
               </div>
             </div>
 
-            <!-- Right: unlinked condition groups -->
             <div class="es__unlinked-right" v-if="unlinkedCondGroups.length">
               <div v-for="cg in unlinkedCondGroups" :key="cg.id" class="es__cond-slot">
                 <div class="es__card es__card--condition es__card--dim"
-                  :data-cg-key="cg.id"
-                  @click="handleEditConditionGroup(cg)">
+                  :class="{ 'es__card--expanded': expandedConds[cg.id] }"
+                  :data-cg-key="cg.id">
                   <div class="es__card-dot-indicator"></div>
-                  <div class="es__card-body">
-                    <div class="es__cg-icon" :style="cgIconStyle(cg?.id)">
-                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="5" height="14" rx="1.5" fill="currentColor" opacity=".7"/><rect x="10" y="6" width="5" height="11" rx="1.5" fill="currentColor" opacity=".5"/></svg>
-                    </div>
-                    <div class="es__card-info">
-                      <div class="es__card-name">{{ cg?.name || 'Untitled' }}</div>
-                      <div class="es__card-sub">
-                        <span>{{ cg._conditions?.length || 0 }} condition{{ (cg._conditions?.length || 0) !== 1 ? 's' : '' }}</span>
+                  <div class="es__cond-wrap">
+                    <div class="es__cond-header" @click="handleEditConditionGroup(cg)">
+                      <div class="es__cg-icon" :style="cgIconStyle(cg?.id)">
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
                       </div>
+                      <div class="es__card-info">
+                        <div class="es__card-name">{{ cg?.name || 'Untitled' }}</div>
+                        <div class="es__card-sub">
+                          <span>{{ cg._conditions?.length || 0 }} condition{{ (cg._conditions?.length || 0) !== 1 ? 's' : '' }}</span>
+                        </div>
+                      </div>
+                      <button class="es__expand-btn" @click.stop="toggleCondExpand(cg.id)"
+                        :class="{ 'es__expand-btn--open': expandedConds[cg.id] }">
+                        <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M6 12.5l4-5 4 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </button>
                     </div>
-                    <button class="es__link-btn" @click.stop="handleEditConditionGroup(cg)">+ Add Condition</button>
-                    <button class="es__card-edit" @click.stop="handleEditConditionGroup(cg)">
-                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" fill="currentColor"/></svg>
-                    </button>
+                    <div v-if="expandedConds[cg.id] && cg._conditions?.length" class="es__cond-detail">
+                      <table class="es__cond-table">
+                        <thead>
+                          <tr><th>Type</th><th>Items</th><th>Logic</th><th>Threshold type</th><th>Excess</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(cond, ci) in cg._conditions" :key="ci">
+                            <td>{{ formatEntity(cond?.entity) }}</td>
+                            <td><span class="es__items-badge">{{ cond?.entity_ids?.length || 0 }}</span></td>
+                            <td>{{ cond?.operator || '-' }}</td>
+                            <td>{{ formatThreshold(cond?.threshold_unit) }}</td>
+                            <td>{{ cond?.apply_to_excess_only ? 'Yes' : 'No' }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -227,6 +256,8 @@ import CreateGroupModal from './components/CreateGroupModal.vue';
 import ConnectPopup from './components/ConnectPopup.vue';
 
 const GROUP_COLORS = ['#2C6ECB', '#D82C0D', '#8A6116', '#29845A', '#6D28D9', '#0D9488', '#C05717', '#4F46E5'];
+const ENTITY_LABELS = { product_product: 'Product', product_sku: 'SKU', product_brand: 'Brand', product_category: 'Category', store: 'Store', store_attribute_set: 'Store Attr', tier: 'Tier', persona: 'Persona' };
+const THRESHOLD_LABELS = { purchase_amount: 'Purchase amount', purchase_quantity: 'Purchase qty', purchase_count: 'Purchase count' };
 
 function hashStr(s) { let h = 0; for (let i = 0; i < (s||'').length; i++) { h = ((h<<5)-h)+s.charCodeAt(i); h |= 0; } return Math.abs(h); }
 
@@ -261,6 +292,7 @@ export default {
     const hoveredLine = ref(null);
     const connectPopup = ref({ open: false, pos: null, factorId: null, groupId: null });
     const lines = ref([]);
+    const expandedConds = ref({});
     let lineTimer = null, ro = null;
 
     const groupNameMap = computed(() => {
@@ -273,6 +305,14 @@ export default {
     function getGroupName(gid) { return groupNameMap.value[gid] || 'Unknown Group'; }
     function cgIconStyle(gid) { const c = getGroupColor(gid); return { background: `${c}12`, color: c }; }
     function sidebarStyle(gid) { const c = getGroupColor(gid); return { background: `${c}06` }; }
+    function formatEntity(e) { return ENTITY_LABELS[e] || e?.replace(/_/g, ' ')?.replace(/\b\w/g, c => c.toUpperCase()) || '-'; }
+    function formatThreshold(u) { return THRESHOLD_LABELS[u] || u?.replace(/_/g, ' ')?.replace(/\b\w/g, c => c.toUpperCase()) || '-'; }
+
+    function toggleCondExpand(dk) {
+      expandedConds.value = { ...expandedConds.value, [dk]: !expandedConds.value[dk] };
+      scheduleLineUpdate();
+      setTimeout(scheduleLineUpdate, 300);
+    }
 
     const groupedEntries = computed(() => {
       const condGroups = allCondGroups.value || [];
@@ -301,19 +341,15 @@ export default {
     const linkedGroupEntries = computed(() =>
       groupedEntries.value.filter(e => e.factors.some(f => f._condGroupInfo))
     );
-
     const unlinkedGroupsWithFactors = computed(() =>
       groupedEntries.value.filter(e => e.factors.length > 0 && !e.factors.some(f => f._condGroupInfo))
     );
-
     const emptyGroups = computed(() =>
       groupedEntries.value.filter(e => e.factors.length === 0)
     );
-
     const hasUnlinkedSection = computed(() =>
       unlinkedGroupsWithFactors.value.length > 0 || emptyGroups.value.length > 0 || unlinkedCondGroups.value.length > 0
     );
-
     const unlinkedCondGroups = computed(() => {
       const allF = Object.values(factorsByGroup.value || {}).flat();
       const linked = new Set(allF.map(f => f?.earn_conditions_group_id).filter(Boolean));
@@ -378,7 +414,7 @@ export default {
           const x1 = fR.right - lr.left;
           const y1 = fR.top + fR.height / 2 - lr.top;
           const x2 = cR.left - lr.left;
-          const y2 = cR.top + cR.height / 2 - lr.top;
+          const y2 = cR.top + 30 - lr.top;
           if (x2 <= x1) continue;
 
           const cp = Math.max((x2 - x1) * 0.4, 40);
@@ -412,13 +448,14 @@ export default {
     return {
       rootRef, layoutRef, svgRef, content: computed(() => props.content),
       factorGroups, allCondGroups, entityOptions, ticketTypes,
-      loadingFactorGroups, loadingConditionGroups,
+      loadingFactorGroups, loadingConditionGroups, expandedConds,
       panel, editingFactor, editingGroupId, editingCondGroup,
       showModal, modalType, hoveredLine, connectPopup,
       linkedGroupEntries, unlinkedGroupsWithFactors, emptyGroups,
       hasUnlinkedSection, unlinkedCondGroups, lines,
       getGroupColor, getGroupName, cgIconStyle, sidebarStyle,
-      getFactorTitle, getFactorType,
+      getFactorTitle, getFactorType, formatEntity, formatThreshold,
+      toggleCondExpand,
       handleAddFactor, handleEditFactor, handleEditFactorGroup,
       handleEditConditionGroup, handleConnectFactor,
       openCreateFactorGroup, openCreateConditionGroup, handleModalSave,
@@ -445,7 +482,6 @@ $right-width: 480px;
   width: 100%; height: 100%; overflow: auto;
   padding: 0 var(--p-space-600) 64px;
 
-  // ─── Layout ───
   &__layout { display: flex; flex-direction: column; position: relative; }
   &__header-row { display: flex; justify-content: space-between; }
   &__col-head {
@@ -457,19 +493,17 @@ $right-width: 480px;
   &__title { @include polaris-text-title; margin: 0; }
   &__primary-btn { @include polaris-button-primary; @include polaris-button-slim; font-size: var(--p-font-size-300); }
 
-  // ─── Group row ───
   &__group-row {
     display: flex; justify-content: space-between; align-items: flex-start;
     margin-bottom: var(--p-space-500);
   }
 
-  // ─── Left side: sidebar + factor cards ───
   &__group-left {
     width: $left-width; flex-shrink: 0; z-index: 2;
     display: flex; align-items: stretch; gap: 10px;
   }
 
-  // ─── Group sidebar panel ───
+  // ─── Group sidebar (no icon, just name + action icons) ───
   &__group-sidebar {
     width: $sidebar-width; flex-shrink: 0;
     min-height: $card-height;
@@ -478,24 +512,16 @@ $right-width: 480px;
     border-radius: var(--p-border-radius-200);
     overflow: hidden;
   }
-
   &__sidebar-accent {
     width: 4px; min-width: 4px;
   }
-
   &__sidebar-inner {
     flex: 1;
-    padding: 8px 8px 8px 10px;
+    padding: 0 8px 0 10px;
     display: flex; align-items: center; gap: 6px;
     align-self: flex-start;
+    min-height: $card-height;
   }
-
-  &__sidebar-icon {
-    width: 24px; height: 24px; min-width: 24px; border-radius: 5px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-
   &__sidebar-name {
     flex: 1; min-width: 0;
     font-size: 12px; line-height: 1.3;
@@ -504,7 +530,6 @@ $right-width: 480px;
     overflow: hidden; text-overflow: ellipsis;
     white-space: nowrap;
   }
-
   &__sidebar-action {
     width: 22px; height: 22px; min-width: 22px;
     display: flex; align-items: center; justify-content: center;
@@ -514,42 +539,31 @@ $right-width: 480px;
     &:hover { opacity: 1; background: var(--p-color-bg-fill-transparent-hover); }
   }
 
-  // ─── Factor cards column ───
   &__group-cards {
     flex: 1; display: flex; flex-direction: column;
     gap: var(--p-space-200); min-width: 0;
   }
 
-  // ─── Right side: condition group slots ───
   &__group-right { width: $right-width; flex-shrink: 0; z-index: 2; }
   &__cond-slots { display: flex; flex-direction: column; gap: var(--p-space-200); }
-  &__cond-slot { min-height: $card-height; display: flex; align-items: center; }
+  &__cond-slot { min-height: $card-height; display: flex; align-items: flex-start; }
 
-  // ─── SVG overlay ───
   &__svg {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     z-index: 1; pointer-events: none; overflow: visible;
     path { pointer-events: stroke; }
   }
 
-  // ═══ UNLINKED SECTION ═══
-  &__unlinked-row {
-    display: flex; justify-content: space-between; align-items: flex-start;
-  }
-  &__unlinked-left {
-    width: $left-width; flex-shrink: 0;
-    display: flex; flex-direction: column; gap: 8px;
-  }
+  // ═══ UNLINKED ═══
+  &__unlinked-row { display: flex; justify-content: space-between; align-items: flex-start; }
+  &__unlinked-left { width: $left-width; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
   &__unlinked-group {
     display: flex; align-items: stretch; gap: 10px;
     opacity: 0.7; transition: opacity 0.15s;
     &:hover { opacity: 1; }
     &--empty { opacity: 0.5; }
   }
-  &__unlinked-right {
-    width: $right-width; flex-shrink: 0;
-    display: flex; flex-direction: column; gap: var(--p-space-200);
-  }
+  &__unlinked-right { width: $right-width; flex-shrink: 0; display: flex; flex-direction: column; gap: var(--p-space-200); }
 
   // ─── Unified card ───
   &__card {
@@ -571,13 +585,14 @@ $right-width: 480px;
     &--factor { border-color: var(--p-color-border-info); box-shadow: var(--p-shadow-card-sm); }
     &--condition { padding-left: var(--p-space-400); width: 100%; cursor: pointer; }
     &--dim { opacity: 0.6; border-color: var(--p-color-border); &:hover { opacity: 1; } }
+    &--expanded { height: auto; border-color: var(--p-color-border-info); box-shadow: var(--p-shadow-card-sm); }
   }
   &__card-accent {
     width: 4px; min-width: 4px;
     border-radius: var(--p-border-radius-200) 0 0 var(--p-border-radius-200);
   }
   &__card-dot-indicator {
-    position: absolute; left: -7px; top: 50%; transform: translateY(-50%);
+    position: absolute; left: -7px; top: 30px; transform: translateY(-50%);
     width: 10px; height: 10px; border-radius: 50%;
     background: var(--p-color-border-info); border: 2px solid #F8FAFC; z-index: 3;
   }
@@ -622,15 +637,65 @@ $right-width: 480px;
   }
   &__link-btn { @include polaris-button-plain; font-size: var(--p-font-size-275); white-space: nowrap; padding: 2px 6px; min-height: auto; }
 
+  // ─── Condition expand ───
+  &__cond-wrap {
+    flex: 1; display: flex; flex-direction: column; min-width: 0;
+  }
+  &__cond-header {
+    height: 58px; display: flex; align-items: center;
+    gap: var(--p-space-200); padding: 0 var(--p-space-300);
+    min-width: 0; cursor: pointer;
+  }
+  &__expand-btn {
+    width: 28px; height: 28px; min-width: 28px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--p-color-bg-surface); border: 1px solid var(--p-color-border);
+    border-radius: 8px; cursor: pointer; flex-shrink: 0;
+    color: var(--p-color-icon); transition: transform 0.2s, background 0.1s;
+    svg { transform: rotate(180deg); transition: transform 0.2s; }
+    &--open svg { transform: rotate(0deg); }
+    &:hover { background: var(--p-color-bg-fill-transparent-hover); }
+  }
+
+  &__cond-detail {
+    border-top: 1px solid var(--p-color-border);
+    padding: 0;
+  }
+
+  &__cond-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 13px;
+
+    th {
+      text-align: center; padding: 8px 10px;
+      font-weight: var(--p-font-weight-medium);
+      color: var(--p-color-text-secondary);
+      font-size: 12px; background: var(--p-color-bg-surface-secondary);
+      border-bottom: 1px solid var(--p-color-border);
+    }
+    td {
+      text-align: center; padding: 10px;
+      border-bottom: 1px solid var(--p-color-border);
+      color: var(--p-color-text);
+    }
+    tr:last-child td { border-bottom: none; }
+  }
+
+  &__items-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 8px; border-radius: 10px;
+    background: #FDE8E8; color: #D82C0D;
+    font-size: 12px; font-weight: var(--p-font-weight-semibold);
+  }
+
   // ─── Divider ───
   &__divider {
     display: flex; align-items: center; gap: var(--p-space-200);
-    padding: var(--p-space-300) 0 var(--p-space-300);
+    padding: var(--p-space-300) 0;
     span { font-size: 10px; font-weight: var(--p-font-weight-semibold); color: var(--p-color-text-disabled); text-transform: uppercase; letter-spacing: 1px; }
     &::after { content: ''; flex: 1; height: 1px; background: var(--p-color-border); }
   }
 
-  // ─── Common ───
   &__loading { display: flex; justify-content: center; padding: var(--p-space-1200) 0; }
   &__spinner { @include polaris-spinner; }
   &__empty { @include polaris-text-description; text-align: center; padding: var(--p-space-1000) var(--p-space-400); border: 2px dashed var(--p-color-border); border-radius: var(--p-border-radius-200); color: var(--p-color-text-disabled); }
