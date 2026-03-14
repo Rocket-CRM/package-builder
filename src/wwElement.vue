@@ -246,7 +246,16 @@ export default {
     }
     async function loadFactorGroups() {
       loadingFactorGroups.value = true;
-      try { factorGroups.value = await api.fetchEarnFactorGroups() || []; const m = {}; for (const g of factorGroups.value) { if (g?.id) m[g.id] = await api.fetchFactorsByGroup(g.id) || []; } factorsByGroup.value = m; }
+      try {
+        factorGroups.value = await api.fetchEarnFactorGroups() || [];
+        const m = {};
+        for (const g of factorGroups.value) {
+          if (!g?.id) continue;
+          const factors = await api.fetchFactorsByGroup(g.id) || [];
+          m[g.id] = factors.map(f => ({ ...f, earn_factor_group_id: f.earn_factor_group_id || g.id }));
+        }
+        factorsByGroup.value = m;
+      }
       catch (e) { err('Load failed', e); } finally { loadingFactorGroups.value = false; }
     }
     async function loadCondGroups() {
