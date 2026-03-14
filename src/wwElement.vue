@@ -1,7 +1,6 @@
 <template>
   <div class="es" ref="rootRef">
     <div class="es__layout" ref="layoutRef">
-      <!-- Column headers -->
       <div class="es__header-row">
         <div class="es__col-head es__col-head--left">
           <h2 class="es__title">Earn factor group</h2>
@@ -16,7 +15,7 @@
       <div v-if="loadingFactorGroups" class="es__loading"><div class="es__spinner"></div></div>
 
       <template v-else>
-        <!-- ═══ LINKED GROUPS (top) ═══ -->
+        <!-- ═══ LINKED GROUPS ═══ -->
         <div v-for="entry in linkedGroupEntries" :key="entry.group.id" class="es__group-row">
           <div class="es__group-left">
             <div class="es__group-sidebar" :style="sidebarStyle(entry.group.id)">
@@ -32,9 +31,7 @@
               </div>
             </div>
             <div class="es__group-cards">
-              <div v-for="f in entry.factors" :key="f.id"
-                :data-factor-id="f.id"
-                class="es__card es__card--factor">
+              <div v-for="f in entry.factors" :key="f.id" :data-factor-id="f.id" class="es__card es__card--factor">
                 <div class="es__card-accent" :style="{ background: getGroupColor(f.earn_factor_group_id) }"></div>
                 <div class="es__card-body">
                   <div class="es__card-icon" :class="f.target_currency === 'ticket' ? 'es__card-icon--credit' : 'es__card-icon--points'">
@@ -45,7 +42,8 @@
                     <div class="es__card-name">{{ getFactorTitle(f) }}</div>
                     <div class="es__card-sub"><span>{{ getFactorType(f) }}</span></div>
                   </div>
-                  <span v-if="f.earn_factor_type === 'multiplier'" class="es__card-mult">{{ f.earn_factor_amount || 0 }}x</span>
+                  <span v-if="f.earn_factor_type === 'multiplier'" class="es__card-badge es__card-badge--mult">{{ f.earn_factor_amount || 0 }}x</span>
+                  <span v-else-if="f.earn_factor_amount" class="es__card-badge es__card-badge--rate">฿{{ f.earn_factor_amount }}</span>
                   <button class="es__card-edit" @click="handleEditFactor(f)">
                     <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" fill="currentColor"/></svg>
                   </button>
@@ -59,23 +57,23 @@
           <div class="es__group-right">
             <div class="es__cond-slots">
               <div v-for="f in entry.factors" :key="f.id" class="es__cond-slot">
-                <div v-if="f._condGroupInfo"
-                  :data-cg-key="f._dk"
-                  class="es__card es__card--condition"
-                  :class="{ 'es__card--expanded': expandedConds[f._dk] }">
+                <div v-if="f._condGroupInfo" :data-cg-key="f._dk"
+                  class="es__card es__card--condition" :class="{ 'es__card--expanded': expandedConds[f._dk] }">
                   <div class="es__card-dot-indicator"></div>
                   <div class="es__cond-wrap">
                     <div class="es__cond-header" @click="handleEditConditionGroup(f._condGroupInfo.group)">
                       <div class="es__cg-icon" :style="cgIconStyle(f._condGroupInfo.group?.id)">
-                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M6 10h8M8 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
                       </div>
                       <div class="es__card-info">
                         <div class="es__card-name">{{ f._condGroupInfo.group?.name || 'Untitled' }}</div>
                         <div class="es__card-sub">
                           <span>{{ f._condGroupInfo.conditions?.length || 0 }} condition{{ (f._condGroupInfo.conditions?.length || 0) !== 1 ? 's' : '' }}</span>
                           <template v-if="f._condGroupInfo.linkedCount > 0">
-                            <span class="es__card-dot-sep"></span>
-                            <span>{{ f._condGroupInfo.linkedCount }} linked</span>
+                            <span class="es__linked-badge">
+                              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6.5 9.5l3-3M5 11l-1.5 1.5a2 2 0 01-2.8-2.8L2.2 8.2M11 5l1.5-1.5a2 2 0 00-2.8-2.8L8.2 2.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                              {{ f._condGroupInfo.linkedCount }}
+                            </span>
                           </template>
                         </div>
                       </div>
@@ -86,21 +84,23 @@
                     </div>
                     <div v-if="expandedConds[f._dk] && f._condGroupInfo.conditions?.length" class="es__cond-detail">
                       <table class="es__cond-table">
-                        <thead>
-                          <tr>
-                            <th>Type</th>
-                            <th>Items</th>
-                            <th>Logic</th>
-                            <th>Threshold type</th>
-                            <th>Excess</th>
-                          </tr>
-                        </thead>
+                        <thead><tr><th>Type</th><th>Items</th><th>Logic</th><th>Threshold type</th><th>Excess</th></tr></thead>
                         <tbody>
                           <tr v-for="(cond, ci) in f._condGroupInfo.conditions" :key="ci">
                             <td>{{ formatEntity(cond?.entity) }}</td>
-                            <td><span class="es__items-badge">{{ cond?.entity_ids?.length || 0 }}</span></td>
+                            <td>
+                              <span class="es__items-badge">
+                                {{ cond?.entity_ids?.length || 0 }}
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>
+                              </span>
+                            </td>
                             <td>{{ cond?.operator || '-' }}</td>
-                            <td>{{ formatThreshold(cond?.threshold_unit) }}</td>
+                            <td>
+                              <span class="es__threshold-cell">
+                                {{ formatThreshold(cond?.threshold_unit) }}
+                                <svg v-if="cond?.threshold_unit" width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="3" y="2" width="10" height="12" rx="1.5" stroke="currentColor" stroke-width="1"/><path d="M6 6h4M6 9h3" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/></svg>
+                              </span>
+                            </td>
                             <td>{{ cond?.apply_to_excess_only ? 'Yes' : 'No' }}</td>
                           </tr>
                         </tbody>
@@ -132,9 +132,7 @@
                   </div>
                 </div>
                 <div class="es__group-cards">
-                  <div v-for="f in entry.factors" :key="f.id"
-                    :data-factor-id="f.id"
-                    class="es__card es__card--factor es__card--dim">
+                  <div v-for="f in entry.factors" :key="f.id" :data-factor-id="f.id" class="es__card es__card--factor es__card--dim">
                     <div class="es__card-accent" :style="{ background: getGroupColor(f.earn_factor_group_id) }"></div>
                     <div class="es__card-body">
                       <div class="es__card-icon" :class="f.target_currency === 'ticket' ? 'es__card-icon--credit' : 'es__card-icon--points'">
@@ -145,7 +143,8 @@
                         <div class="es__card-name">{{ getFactorTitle(f) }}</div>
                         <div class="es__card-sub"><span>{{ getFactorType(f) }}</span></div>
                       </div>
-                      <span v-if="f.earn_factor_type === 'multiplier'" class="es__card-mult">{{ f.earn_factor_amount || 0 }}x</span>
+                      <span v-if="f.earn_factor_type === 'multiplier'" class="es__card-badge es__card-badge--mult">{{ f.earn_factor_amount || 0 }}x</span>
+                      <span v-else-if="f.earn_factor_amount" class="es__card-badge es__card-badge--rate">฿{{ f.earn_factor_amount }}</span>
                       <button class="es__card-edit" @click="handleEditFactor(f)">
                         <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" fill="currentColor"/></svg>
                       </button>
@@ -176,13 +175,12 @@
             <div class="es__unlinked-right" v-if="unlinkedCondGroups.length">
               <div v-for="cg in unlinkedCondGroups" :key="cg.id" class="es__cond-slot">
                 <div class="es__card es__card--condition es__card--dim"
-                  :class="{ 'es__card--expanded': expandedConds[cg.id] }"
-                  :data-cg-key="cg.id">
+                  :class="{ 'es__card--expanded': expandedConds[cg.id] }" :data-cg-key="cg.id">
                   <div class="es__card-dot-indicator"></div>
                   <div class="es__cond-wrap">
                     <div class="es__cond-header" @click="handleEditConditionGroup(cg)">
                       <div class="es__cg-icon" :style="cgIconStyle(cg?.id)">
-                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M6 10h8M8 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
                       </div>
                       <div class="es__card-info">
                         <div class="es__card-name">{{ cg?.name || 'Untitled' }}</div>
@@ -197,15 +195,23 @@
                     </div>
                     <div v-if="expandedConds[cg.id] && cg._conditions?.length" class="es__cond-detail">
                       <table class="es__cond-table">
-                        <thead>
-                          <tr><th>Type</th><th>Items</th><th>Logic</th><th>Threshold type</th><th>Excess</th></tr>
-                        </thead>
+                        <thead><tr><th>Type</th><th>Items</th><th>Logic</th><th>Threshold type</th><th>Excess</th></tr></thead>
                         <tbody>
                           <tr v-for="(cond, ci) in cg._conditions" :key="ci">
                             <td>{{ formatEntity(cond?.entity) }}</td>
-                            <td><span class="es__items-badge">{{ cond?.entity_ids?.length || 0 }}</span></td>
+                            <td>
+                              <span class="es__items-badge">
+                                {{ cond?.entity_ids?.length || 0 }}
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>
+                              </span>
+                            </td>
                             <td>{{ cond?.operator || '-' }}</td>
-                            <td>{{ formatThreshold(cond?.threshold_unit) }}</td>
+                            <td>
+                              <span class="es__threshold-cell">
+                                {{ formatThreshold(cond?.threshold_unit) }}
+                                <svg v-if="cond?.threshold_unit" width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="3" y="2" width="10" height="12" rx="1.5" stroke="currentColor" stroke-width="1"/><path d="M6 6h4M6 9h3" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/></svg>
+                              </span>
+                            </td>
                             <td>{{ cond?.apply_to_excess_only ? 'Yes' : 'No' }}</td>
                           </tr>
                         </tbody>
@@ -221,7 +227,6 @@
         <div v-if="!factorGroups?.length" class="es__empty">No earn factor groups yet.</div>
       </template>
 
-      <!-- SVG CONNECTIONS -->
       <svg class="es__svg" ref="svgRef">
         <path v-for="ln in lines" :key="ln.key" :d="ln.d" fill="none"
           :stroke="hoveredLine === ln.key ? '#0262E0' : '#CCCCCC'"
@@ -230,7 +235,6 @@
       </svg>
     </div>
 
-    <!-- Panels -->
     <transition name="slide">
       <EarnFactorConfig v-if="panel === 'factor'" :factor="editingFactor" :group-id="editingGroupId"
         :condition-groups="allCondGroups" :ticket-types="ticketTypes" :panel-width="content?.configPanelWidth || '400px'"
@@ -317,7 +321,6 @@ export default {
     const groupedEntries = computed(() => {
       const condGroups = allCondGroups.value || [];
       const allF = Object.values(factorsByGroup.value || {}).flat();
-
       return (factorGroups.value || []).filter(g => g?.id).map(g => ({
         group: g,
         factors: (factorsByGroup.value[g.id] || []).map(f => {
@@ -338,47 +341,31 @@ export default {
       }));
     });
 
-    const linkedGroupEntries = computed(() =>
-      groupedEntries.value.filter(e => e.factors.some(f => f._condGroupInfo))
-    );
-    const unlinkedGroupsWithFactors = computed(() =>
-      groupedEntries.value.filter(e => e.factors.length > 0 && !e.factors.some(f => f._condGroupInfo))
-    );
-    const emptyGroups = computed(() =>
-      groupedEntries.value.filter(e => e.factors.length === 0)
-    );
-    const hasUnlinkedSection = computed(() =>
-      unlinkedGroupsWithFactors.value.length > 0 || emptyGroups.value.length > 0 || unlinkedCondGroups.value.length > 0
-    );
+    const linkedGroupEntries = computed(() => groupedEntries.value.filter(e => e.factors.some(f => f._condGroupInfo)));
+    const unlinkedGroupsWithFactors = computed(() => groupedEntries.value.filter(e => e.factors.length > 0 && !e.factors.some(f => f._condGroupInfo)));
+    const emptyGroups = computed(() => groupedEntries.value.filter(e => e.factors.length === 0));
+    const hasUnlinkedSection = computed(() => unlinkedGroupsWithFactors.value.length > 0 || emptyGroups.value.length > 0 || unlinkedCondGroups.value.length > 0);
     const unlinkedCondGroups = computed(() => {
       const allF = Object.values(factorsByGroup.value || {}).flat();
       const linked = new Set(allF.map(f => f?.earn_conditions_group_id).filter(Boolean));
       return (allCondGroups.value || []).filter(g => g?.id && !linked.has(g.id)).map(g => ({
-        ...g,
-        _conditions: condCache.value[g.id]?.conditions || g?.conditions || [],
+        ...g, _conditions: condCache.value[g.id]?.conditions || g?.conditions || [],
       }));
     });
 
     async function loadAll() {
       await Promise.all([loadFactorGroups(), loadCondGroups(), loadEntities()]);
       emit('trigger-event', { name: 'data-loaded', event: { factorGroupCount: factorGroups.value?.length, conditionGroupCount: allCondGroups.value?.length } });
-      scheduleLineUpdate();
-      setTimeout(scheduleLineUpdate, 300);
-      setTimeout(scheduleLineUpdate, 800);
+      scheduleLineUpdate(); setTimeout(scheduleLineUpdate, 300); setTimeout(scheduleLineUpdate, 800);
     }
     async function loadFactorGroups() {
       loadingFactorGroups.value = true;
       try {
         factorGroups.value = await api.fetchEarnFactorGroups() || [];
         const m = {};
-        for (const g of factorGroups.value) {
-          if (!g?.id) continue;
-          const factors = await api.fetchFactorsByGroup(g.id) || [];
-          m[g.id] = factors.map(f => ({ ...f, earn_factor_group_id: f.earn_factor_group_id || g.id }));
-        }
+        for (const g of factorGroups.value) { if (!g?.id) continue; const factors = await api.fetchFactorsByGroup(g.id) || []; m[g.id] = factors.map(f => ({ ...f, earn_factor_group_id: f.earn_factor_group_id || g.id })); }
         factorsByGroup.value = m;
-      }
-      catch (e) { err('Load failed', e); } finally { loadingFactorGroups.value = false; }
+      } catch (e) { err('Load failed', e); } finally { loadingFactorGroups.value = false; }
     }
     async function loadCondGroups() {
       loadingConditionGroups.value = true;
@@ -388,19 +375,13 @@ export default {
     async function loadEntities() { try { entityOptions.value = await api.fetchEntityOptions() || []; } catch (e) { err('Load failed', e); } }
     function err(m, e) { console.error(m, e); emit('trigger-event', { name: 'error', event: { message: m, code: 'ERR' } }); }
 
-    function scheduleLineUpdate() {
-      clearTimeout(lineTimer);
-      lineTimer = setTimeout(() => nextTick(rebuildLines), 150);
-    }
+    function scheduleLineUpdate() { clearTimeout(lineTimer); lineTimer = setTimeout(() => nextTick(rebuildLines), 150); }
 
     function rebuildLines() {
-      const root = rootRef.value;
-      if (!root) return;
-      const layout = layoutRef.value;
-      if (!layout) return;
+      const root = rootRef.value; if (!root) return;
+      const layout = layoutRef.value; if (!layout) return;
       const lr = layout.getBoundingClientRect();
       const newLines = [];
-
       for (const entry of linkedGroupEntries.value) {
         for (const f of entry.factors) {
           if (!f._dk) continue;
@@ -408,21 +389,14 @@ export default {
           const fEl = root.querySelector(`[data-factor-id="${f.id}"]`) || doc.querySelector(`[data-factor-id="${f.id}"]`);
           const cEl = root.querySelector(`[data-cg-key="${f._dk}"]`) || doc.querySelector(`[data-cg-key="${f._dk}"]`);
           if (!fEl || !cEl) continue;
-
-          const fR = fEl.getBoundingClientRect();
-          const cR = cEl.getBoundingClientRect();
-          const x1 = fR.right - lr.left;
-          const y1 = fR.top + fR.height / 2 - lr.top;
-          const x2 = cR.left - lr.left;
-          const y2 = cR.top + 30 - lr.top;
+          const fR = fEl.getBoundingClientRect(); const cR = cEl.getBoundingClientRect();
+          const x1 = fR.right - lr.left; const y1 = fR.top + fR.height / 2 - lr.top;
+          const x2 = cR.left - lr.left; const y2 = cR.top + 30 - lr.top;
           if (x2 <= x1) continue;
-
           const cp = Math.max((x2 - x1) * 0.4, 40);
-          const d = `M ${x1} ${y1} C ${x1 + cp} ${y1}, ${x2 - cp} ${y2}, ${x2} ${y2}`;
-          newLines.push({ key: `${f.id}__${f.earn_conditions_group_id}`, d });
+          newLines.push({ key: `${f.id}__${f.earn_conditions_group_id}`, d: `M ${x1} ${y1} C ${x1 + cp} ${y1}, ${x2 - cp} ${y2}, ${x2} ${y2}` });
         }
       }
-
       lines.value = newLines;
     }
 
@@ -470,8 +444,8 @@ export default {
 @import 'polaris-weweb-styles';
 
 $card-height: 60px;
-$sidebar-width: 140px;
-$left-width: 520px;
+$sidebar-width: 160px;
+$left-width: 560px;
 $right-width: 480px;
 
 .es {
@@ -486,7 +460,7 @@ $right-width: 480px;
   &__header-row { display: flex; justify-content: space-between; }
   &__col-head {
     display: flex; align-items: center; justify-content: space-between;
-    padding: var(--p-space-600) 0 var(--p-space-400);
+    padding: var(--p-space-500) 0 var(--p-space-300);
     &--left { width: $left-width; flex-shrink: 0; }
     &--right { width: $right-width; flex-shrink: 0; }
   }
@@ -495,15 +469,15 @@ $right-width: 480px;
 
   &__group-row {
     display: flex; justify-content: space-between; align-items: flex-start;
-    margin-bottom: var(--p-space-500);
+    margin-bottom: var(--p-space-300);
   }
 
   &__group-left {
     width: $left-width; flex-shrink: 0; z-index: 2;
-    display: flex; align-items: stretch; gap: 10px;
+    display: flex; align-items: stretch; gap: 8px;
   }
 
-  // ─── Group sidebar (no icon, just name + action icons) ───
+  // ─── Group sidebar ───
   &__group-sidebar {
     width: $sidebar-width; flex-shrink: 0;
     min-height: $card-height;
@@ -512,30 +486,25 @@ $right-width: 480px;
     border-radius: var(--p-border-radius-200);
     overflow: hidden;
   }
-  &__sidebar-accent {
-    width: 4px; min-width: 4px;
-  }
+  &__sidebar-accent { width: 4px; min-width: 4px; }
   &__sidebar-inner {
-    flex: 1;
-    padding: 0 8px 0 10px;
-    display: flex; align-items: center; gap: 6px;
-    align-self: flex-start;
-    min-height: $card-height;
+    flex: 1; padding: 0 6px 0 10px;
+    display: flex; align-items: center; gap: 4px;
+    align-self: flex-start; min-height: $card-height;
   }
   &__sidebar-name {
     flex: 1; min-width: 0;
-    font-size: 12px; line-height: 1.3;
+    font-size: 12px; line-height: 1.35;
     font-weight: var(--p-font-weight-semibold);
     color: var(--p-color-text);
-    overflow: hidden; text-overflow: ellipsis;
-    white-space: nowrap;
+    word-break: break-word;
   }
   &__sidebar-action {
     width: 22px; height: 22px; min-width: 22px;
     display: flex; align-items: center; justify-content: center;
     background: none; border: none; border-radius: var(--p-border-radius-100);
     color: var(--p-color-icon); cursor: pointer; flex-shrink: 0;
-    opacity: 0.5; transition: opacity 0.1s, background 0.1s;
+    opacity: 0.6; transition: opacity 0.1s, background 0.1s;
     &:hover { opacity: 1; background: var(--p-color-bg-fill-transparent-hover); }
   }
 
@@ -558,71 +527,57 @@ $right-width: 480px;
   &__unlinked-row { display: flex; justify-content: space-between; align-items: flex-start; }
   &__unlinked-left { width: $left-width; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
   &__unlinked-group {
-    display: flex; align-items: stretch; gap: 10px;
+    display: flex; align-items: stretch; gap: 8px;
     opacity: 0.7; transition: opacity 0.15s;
     &:hover { opacity: 1; }
     &--empty { opacity: 0.5; }
   }
   &__unlinked-right { width: $right-width; flex-shrink: 0; display: flex; flex-direction: column; gap: var(--p-space-200); }
 
-  // ─── Unified card ───
+  // ─── Card ───
   &__card {
-    position: relative;
-    display: flex; align-items: stretch;
+    position: relative; display: flex; align-items: stretch;
     height: $card-height;
     background: var(--p-color-bg-surface);
     border: 1px solid var(--p-color-border);
     border-radius: var(--p-border-radius-200);
-    overflow: visible;
-    transition: box-shadow 0.1s, border-color 0.1s;
-
-    &:hover {
-      box-shadow: var(--p-shadow-card-hover);
-      .es__card-edit { opacity: 1; }
-      .es__card-connect { opacity: 1; }
-    }
-
+    overflow: visible; transition: box-shadow 0.1s, border-color 0.1s;
+    &:hover { box-shadow: var(--p-shadow-card-hover); .es__card-edit { opacity: 1; } .es__card-connect { opacity: 1; } }
     &--factor { border-color: var(--p-color-border-info); box-shadow: var(--p-shadow-card-sm); }
     &--condition { padding-left: var(--p-space-400); width: 100%; cursor: pointer; }
     &--dim { opacity: 0.6; border-color: var(--p-color-border); &:hover { opacity: 1; } }
     &--expanded { height: auto; border-color: var(--p-color-border-info); box-shadow: var(--p-shadow-card-sm); }
   }
-  &__card-accent {
-    width: 4px; min-width: 4px;
-    border-radius: var(--p-border-radius-200) 0 0 var(--p-border-radius-200);
-  }
+  &__card-accent { width: 4px; min-width: 4px; border-radius: var(--p-border-radius-200) 0 0 var(--p-border-radius-200); }
   &__card-dot-indicator {
     position: absolute; left: -7px; top: 30px; transform: translateY(-50%);
     width: 10px; height: 10px; border-radius: 50%;
     background: var(--p-color-border-info); border: 2px solid #F8FAFC; z-index: 3;
   }
-  &__card-body {
-    flex: 1; display: flex; align-items: center; gap: var(--p-space-200);
-    padding: 0 var(--p-space-300); min-width: 0;
-  }
+  &__card-body { flex: 1; display: flex; align-items: center; gap: var(--p-space-200); padding: 0 var(--p-space-300); min-width: 0; }
   &__card-icon {
     width: 28px; height: 28px; min-width: 28px; border-radius: 5px;
     border: 0.7px solid var(--p-color-border); display: flex; align-items: center; justify-content: center;
     &--points { color: var(--p-color-text-info); }
     &--credit { color: var(--p-color-text); }
   }
-  &__cg-icon {
-    width: 28px; height: 28px; min-width: 28px; border-radius: 5px;
-    display: flex; align-items: center; justify-content: center;
-  }
+  &__cg-icon { width: 28px; height: 28px; min-width: 28px; border-radius: 5px; display: flex; align-items: center; justify-content: center; }
   &__card-info { flex: 1; min-width: 0; }
   &__card-name { font-size: var(--p-font-size-325); font-weight: var(--p-font-weight-semibold); color: var(--p-color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   &__card-sub { font-size: var(--p-font-size-275); color: var(--p-color-text-secondary); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   &__card-dot-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--p-color-text-disabled); flex-shrink: 0; }
-  &__card-mult {
-    font-size: var(--p-font-size-350); font-weight: var(--p-font-weight-bold);
-    color: var(--p-color-text-success); white-space: nowrap; flex-shrink: 0;
+
+  &__card-badge {
+    font-size: var(--p-font-size-325); font-weight: var(--p-font-weight-bold);
+    white-space: nowrap; flex-shrink: 0;
+    &--mult { color: var(--p-color-text-success); }
+    &--rate { color: var(--p-color-text-info); }
   }
+
   &__card-edit {
     width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
     background: none; border: none; border-radius: var(--p-border-radius-100);
-    color: var(--p-color-icon); cursor: pointer; opacity: 0; transition: opacity 0.1s;
-    flex-shrink: 0;
+    color: var(--p-color-icon); cursor: pointer; opacity: 0; transition: opacity 0.1s; flex-shrink: 0;
     &:hover { background: var(--p-color-bg-fill-transparent-hover); }
     &--visible { opacity: 1; }
   }
@@ -637,10 +592,17 @@ $right-width: 480px;
   }
   &__link-btn { @include polaris-button-plain; font-size: var(--p-font-size-275); white-space: nowrap; padding: 2px 6px; min-height: auto; }
 
-  // ─── Condition expand ───
-  &__cond-wrap {
-    flex: 1; display: flex; flex-direction: column; min-width: 0;
+  // ─── Linked badge ───
+  &__linked-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 1px 7px 1px 5px; border-radius: 10px;
+    background: #E3F1FE; color: #2C6ECB;
+    font-size: 11px; font-weight: var(--p-font-weight-semibold);
+    svg { flex-shrink: 0; }
   }
+
+  // ─── Condition expand ───
+  &__cond-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   &__cond-header {
     height: 58px; display: flex; align-items: center;
     gap: var(--p-space-200); padding: 0 var(--p-space-300);
@@ -651,30 +613,25 @@ $right-width: 480px;
     display: flex; align-items: center; justify-content: center;
     background: var(--p-color-bg-surface); border: 1px solid var(--p-color-border);
     border-radius: 8px; cursor: pointer; flex-shrink: 0;
-    color: var(--p-color-icon); transition: transform 0.2s, background 0.1s;
+    color: var(--p-color-icon); transition: background 0.1s;
     svg { transform: rotate(180deg); transition: transform 0.2s; }
     &--open svg { transform: rotate(0deg); }
     &:hover { background: var(--p-color-bg-fill-transparent-hover); }
   }
 
-  &__cond-detail {
-    border-top: 1px solid var(--p-color-border);
-    padding: 0;
-  }
+  &__cond-detail { border-top: 1px solid var(--p-color-border); }
 
   &__cond-table {
-    width: 100%; border-collapse: collapse;
-    font-size: 13px;
-
+    width: 100%; border-collapse: collapse; font-size: 13px;
     th {
       text-align: center; padding: 8px 10px;
       font-weight: var(--p-font-weight-medium);
-      color: var(--p-color-text-secondary);
-      font-size: 12px; background: var(--p-color-bg-surface-secondary);
+      color: var(--p-color-text-secondary); font-size: 12px;
+      background: var(--p-color-bg-surface-secondary);
       border-bottom: 1px solid var(--p-color-border);
     }
     td {
-      text-align: center; padding: 10px;
+      text-align: center; padding: 10px 8px;
       border-bottom: 1px solid var(--p-color-border);
       color: var(--p-color-text);
     }
@@ -682,16 +639,22 @@ $right-width: 480px;
   }
 
   &__items-badge {
-    display: inline-flex; align-items: center; gap: 3px;
+    display: inline-flex; align-items: center; gap: 4px;
     padding: 2px 8px; border-radius: 10px;
     background: #FDE8E8; color: #D82C0D;
     font-size: 12px; font-weight: var(--p-font-weight-semibold);
+    svg { opacity: 0.6; }
+  }
+
+  &__threshold-cell {
+    display: inline-flex; align-items: center; gap: 4px;
+    svg { color: var(--p-color-icon); opacity: 0.5; }
   }
 
   // ─── Divider ───
   &__divider {
     display: flex; align-items: center; gap: var(--p-space-200);
-    padding: var(--p-space-300) 0;
+    padding: var(--p-space-200) 0;
     span { font-size: 10px; font-weight: var(--p-font-weight-semibold); color: var(--p-color-text-disabled); text-transform: uppercase; letter-spacing: 1px; }
     &::after { content: ''; flex: 1; height: 1px; background: var(--p-color-border); }
   }
