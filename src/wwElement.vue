@@ -389,7 +389,18 @@ export default {
       return m;
     });
 
-    function getGroupColor(gid) { return GROUP_COLORS[hashStr(gid) % GROUP_COLORS.length]; }
+    const groupColorMap = computed(() => {
+      const map = {};
+      let idx = 0;
+      for (const g of factorGroups.value || []) {
+        if (g?.id && !map[g.id]) { map[g.id] = GROUP_COLORS[idx % GROUP_COLORS.length]; idx++; }
+      }
+      for (const g of allCondGroups.value || []) {
+        if (g?.id && !map[g.id]) { map[g.id] = GROUP_COLORS[idx % GROUP_COLORS.length]; idx++; }
+      }
+      return map;
+    });
+    function getGroupColor(gid) { return groupColorMap.value[gid] || GROUP_COLORS[hashStr(gid) % GROUP_COLORS.length]; }
     function getGroupName(gid) { return groupNameMap.value[gid] || 'Unknown Group'; }
     function cgIconStyle(gid) { const c = getGroupColor(gid); return { background: `${c}12`, color: c }; }
     function sidebarStyle(gid) { const c = getGroupColor(gid); return { background: `${c}06` }; }

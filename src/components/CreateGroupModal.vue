@@ -40,7 +40,7 @@
         <div v-if="isEdit" class="modal__delete-section">
           <button class="modal__delete-link" @click="showDeleteConfirm = true">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M6 6h8v10H6V6zM4 6h12M8 4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Delete earn factor group
+            Delete
           </button>
         </div>
       </div>
@@ -175,7 +175,17 @@ export default {
   &__field-row { display: flex; gap: var(--p-space-300); margin-bottom: var(--p-space-400); }
   &__label { @include polaris-label; display: block; margin-bottom: var(--p-space-100); }
   &__input { @include polaris-input; }
-  &__date-input { @include polaris-date-field; }
+  &__date-input {
+    @include polaris-date-field;
+    &::-webkit-calendar-picker-indicator {
+      opacity: 0;
+      position: absolute;
+      right: 0;
+      width: 40px;
+      height: 100%;
+      cursor: pointer;
+    }
+  }
   &__switch-wrapper { @include polaris-switch-wrapper; }
   &__switch { @include polaris-switch; }
   &__switch-label { @include polaris-text-body; }

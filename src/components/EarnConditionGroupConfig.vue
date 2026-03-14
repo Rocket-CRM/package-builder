@@ -124,7 +124,7 @@
       <div v-if="!isNew" class="config-panel__delete-section">
         <button class="config-panel__delete-link" @click="showDeleteConfirm = true">
           <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M6 6h8v10H6V6zM4 6h12M8 4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Delete condition group
+          Delete
         </button>
       </div>
     </div>
