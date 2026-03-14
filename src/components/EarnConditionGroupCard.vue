@@ -91,7 +91,6 @@ export default {
     isActive: { type: Boolean, default: false },
     displayKey: { type: String, default: '' },
   },
-  inheritAttrs: false,
   emits: ['select-group', 'add-condition', 'edit-group'],
   setup(props) {
     const conditionCount = computed(() => props.conditions?.length || 0);
