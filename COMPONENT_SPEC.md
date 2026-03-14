@@ -8,59 +8,134 @@ Earn Studio is a **visual mapping builder** for configuring how customers earn l
 2. **Earn Conditions** — Qualifying criteria that gate when a factor applies (e.g. "only for Gold tier members" or "only for Nike products with ≥50 units purchased")
 3. **The link between them** — Which earn factors use which condition groups, visualized as connection lines
 
-The component renders as a two-column layout with SVG connection lines between them, similar to the [Hookdeck connection visualization](https://hookdeck.com/) pattern.
+The component renders as a two-column layout with SVG bezier connection lines between them, following the [Hookdeck connection visualization](https://hookdeck.com/) pattern.
 
 ---
 
-## Business Context
+## Current Architecture
 
-This component is part of the **Currency Rewards Engine** in the Supabase CRM platform. The engine supports:
+### Layout Design (Hookdeck-inspired)
 
-- **Points** — fungible loyalty currency (all points are interchangeable)
-- **Tickets** — non-fungible special currencies tracked per ticket type (raffle tickets, VIP passes, store credit, etc.)
+```
+LEFT (520px)                                    RIGHT (480px)
+┌──────────────────────────────┐                ┌────────────────────────────┐
+│▌ Points Starter Rules        │  ───bezier───  │● Mock Tier Conditions  3   │
+│▌  Standard · Points (Rate)   │                │  3 conditions · 2 linked   │
+└──────────────────────────────┘                └────────────────────────────┘
+┌──────────────────────────────┐                ┌────────────────────────────┐
+│▌ Points Power Boost      3x  │  ───bezier───  │● Product Picks  2          │
+│▌  VIP Ultra · Points (Mult)  │                │  2 conditions · 1 linked   │
+└──────────────────────────────┘                └────────────────────────────┘
 
-Merchants use this component to configure the earning rules that the calculation engine (`calc_currency_for_transaction`) evaluates in real-time when a customer makes a purchase.
+─── UNLINKED ──────────────────
 
-### Key Domain Concepts
+🟥 Untitled Group  + Add earn factor  ✏️
+🟦 Earn Factor Group 945f15e9  + Add earn factor
+┌──────────────────────────────┐                ┌────────────────────────────┐
+│  Points Starter Rules        │                │  awefawef  1               │
+│  Points (Base rate)          │                │  1 condition               │
+└──────────────────────────────┘                └────────────────────────────┘
+```
 
-| Concept | What It Is |
-|---------|------------|
-| **Earn Factor Group** | Container that bundles related earn factors. Defines shared properties: stackable (do multipliers combine?), window period, active status. |
-| **Earn Factor** | Individual earning rule. Two types: **Rate** (converts spend to currency, e.g. ฿100 = 1 pt) and **Multiplier** (increases earnings, e.g. 3x points). |
-| **Earn Conditions Group** | Reusable eligibility gate. Groups one or more conditions together. Can be shared across multiple earn factors. |
-| **Earn Condition** | Single qualifying criterion: an entity type (product, tier, persona, etc.) + entity IDs + operator (OR/AND/EACH) + optional thresholds. |
-| **Connection** | The `earn_conditions_group_id` FK on `earn_factor` that links a factor to its conditions. |
+**Key layout decisions:**
+
+- **Both columns use 60px fixed-height cards** — ensures rows align horizontally for straight connection lines
+- **Connected factors sort to the top** — factors with `earn_conditions_group_id` appear first on the left
+- **Unlinked groups/factors at the bottom** — separated by a subtle "UNLINKED" divider
+- **Group identity is inline** — shown as a colored 4px left accent bar + colored group name in the card subtitle (no container boxes or section headers that would break row alignment)
+- **Right column duplicates condition groups** per linked factor (Hookdeck pattern) — if 3 factors link to "Tier Perks", it appears 3 times on the right, one per row
+- **SVG overlay** covers the full layout with `position: absolute`, `pointer-events: none` (paths have `pointer-events: stroke` for hover)
+- **Connection lines** use bezier curves (`M x1 y1 C cp1 y1, cp2 y2, x2 y2`) for smooth routing
+
+### Data Attribute DOM Query Pattern
+
+Connection lines are drawn by querying the DOM directly — no Vue ref emit chains:
+
+- Factor cards: `data-factor-id="<uuid>"` set directly in the parent template
+- Condition cards: `data-cg-key="<condGroupId>__<factorId>"` set on the card div
+- `rebuildLines()` uses `root.querySelector('[data-factor-id="..."]')` with fallback to `wwLib.getFrontDocument()` for WeWeb's runtime environment
 
 ---
 
-## Component Layout
+## Current State & Known Issues
+
+### Working
+
+- Data loading: factor groups, factors per group, condition groups, condition details, entity options
+- Left column: connected factors at top with colored group accent + inline group name, unlinked groups at bottom
+- Right column: condition group cards with duplication rule, condition count, linked count
+- Create Earn Factor Group modal (name, stackable, window dates)
+- Edit Earn Factor sidebar panel (all fields matching Figma design)
+- Edit Earn Condition Group sidebar panel (condition list with entity picker, operator toggle, thresholds)
+- Connect popup: "+" button on factor card hover → popup lists condition groups → select to link
+- Group ID injection: `bff_get_earn_factors_by_group` response doesn't include `earn_factor_group_id`, so it's injected from the query context when storing factors
+
+### Known Issues (to fix in next iteration)
+
+1. **SVG connection lines may not render in WeWeb editor** — `querySelector` with `data-*` attributes works in standard DOM but may fail in WeWeb's shadow DOM or iframe context. Current fix uses `rootRef` + `wwLib.getFrontDocument()` fallback, but this needs verification in the live editor. The `lines` reactive array populates correctly but SVG paths may not be visible.
+
+2. **Line rebuild timing** — `scheduleLineUpdate` fires at 150ms delay with 300ms/800ms retries after data load. If the DOM hasn't rendered by then (e.g. large dataset), lines won't appear until the next trigger (scroll, resize, panel open). A MutationObserver or IntersectionObserver approach may be more reliable.
+
+3. **Condition group card click to expand** — clicking a condition group card on the right toggles an expanded state (`expandedRight`), but no detail table is rendered inline since the cards are now 60px fixed height and rendered directly in the parent template. The detail expansion was removed during the height-unification refactor.
+
+4. **EarnConditionGroupCard.vue and EarnFactorGroupCard.vue still exist** in `/src/components/` but are **no longer imported by wwElement.vue** — the main template now renders both columns inline. These files are dead code and should be cleaned up or re-integrated.
+
+5. **No delete functionality exposed in UI** — delete API functions exist in `useApi.js` (`deleteEarnFactor`, `deleteEarnFactorGroup`, `deleteConditionGroup`, `deleteCondition`) but no UI buttons or confirmation dialogs call them.
+
+6. **Sidebar "Assign earn condition group" dropdown** doesn't show condition group details (condition count, entity types) — just the name. Could be improved with a richer dropdown or the ConnectPopup pattern.
+
+---
+
+## File Structure
 
 ```
-┌─────────────────────┐     ┌─────────────────────┐
-│  Earn Factor Groups  │     │ Earn Conditions      │
-│  ─────────────────── │     │ Groups               │
-│                      │     │ ─────────────────── │
-│ ┌──────────────────┐ │     │ ┌──────────────────┐ │
-│ │ Standard Earning │ │     │ │ Tier Perks    ●──┼─┤
-│ │ Rule      [+] ✎ ▾│ │     │ │   [+] ✎ ▾       │ │
-│ │ ┌──────────────┐ │ │     │ │ ┌──────────────┐ │ │
-│ │ │★ Points Rate │─┼─┼──●──┼─│ │ Type │ Items  │ │ │
-│ │ └──────────────┘ │ │     │ │ │ Tier │  32    │ │ │
-│ │ ┌──────────────┐ │ │     │ │ │ Prod │  32    │ │ │
-│ │ │◆ Points Mult │─┼─┼──●──┼─│ └──────────────┘ │ │
-│ │ └──────────────┘ │ │     │ └──────────────────┘ │
-│ └──────────────────┘ │     │                      │
-│                      │     │ ┌──────────────────┐ │
-│ ┌──────────────────┐ │     │ │ Product Picks ●──┼─┤
-│ │ Tier Bonus Rule  │ │     │ └──────────────────┘ │
-│ └──────────────────┘ │     │                      │
-└─────────────────────┘     └─────────────────────┘
-                  ●────SVG lines────●
+earn-studio/
+├── package.json                          # deps: polaris-weweb-styles (github), @weweb/cli
+├── ww-config.js                          # WeWeb element config: props, actions, triggers
+├── COMPONENT_SPEC.md                     # This file
+├── README.md                             # Dev setup + gap tracking
+│
+└── src/
+    ├── wwElement.vue                     # Main component (all rendering + state + API orchestration)
+    │   - Two-column layout with inline cards (no child card components used)
+    │   - SVG absolute overlay for connection lines
+    │   - DOM query pattern: data-factor-id, data-cg-key
+    │   - Computed: connectedFactors, unconnectedEntries, rightEntries
+    │   - 60px unified card height for alignment
+    │
+    ├── useApi.js                         # Supabase RPC/REST API layer
+    │   - getHeaders(): apikey + Bearer token from props
+    │   - rpc(): POST /rest/v1/rpc/{fn}
+    │   - restGet(): GET /rest/v1/{table}
+    │   - Named methods for all 12+ endpoints
+    │
+    └── components/
+        ├── EarnFactorConfig.vue          # Sidebar: edit/create earn factor
+        │   - Fields: name, type (rate/multiplier), amount, target currency,
+        │     window start/end, expiry days, public/private, condition group dropdown
+        │   - Redesigned to match Figma: 24px padding, 13px Inter, clean field spacing
+        │   - Save: emits { groupId, factor } → parent upserts via bff_upsert_earn_factor_group
+        │
+        ├── EarnConditionGroupConfig.vue  # Sidebar: edit/create condition group
+        │   - Group name field
+        │   - Repeatable condition entries with entity type, entity multi-select,
+        │     operator toggle (OR/AND/EACH), threshold type, excess toggle, min/max
+        │   - Entity picker modal with search + checkbox selection
+        │   - Save: emits payload → parent upserts via bff_upsert_earn_conditions_group
+        │
+        ├── CreateGroupModal.vue          # Modal: create new earn factor group
+        │   - Fields: name, stackable toggle, window start/end
+        │
+        ├── ConnectPopup.vue              # Popup: link factor → condition group
+        │   - Searchable list of all condition groups
+        │   - Click to select → parent saves connection via bff_upsert_earn_factor_group
+        │
+        ├── EarnFactorGroupCard.vue       # ⚠️ DEAD CODE — not imported by wwElement.vue
+        │   - Was the left column card component before inline rendering
+        │
+        └── EarnConditionGroupCard.vue    # ⚠️ DEAD CODE — not imported by wwElement.vue
+            - Was the right column card component before inline rendering
 ```
-
-### Duplication Rule
-
-If a single Earn Conditions Group is linked by multiple Earn Factors, the right column shows **multiple instances** of that group card — one per connection. This avoids line crossings and makes the mapping visually clear (Hookdeck pattern).
 
 ---
 
@@ -77,213 +152,30 @@ apikey: {supabaseAnonKey}          ← public anon key (hardcoded default)
 Authorization: Bearer {authToken}   ← admin user JWT (bound from WeWeb auth context)
 ```
 
-The `authToken` prop must be bound in WeWeb to the current admin user's JWT from the Supabase auth plugin. Without it, RPC calls will fail with 401. The anon key is safe to hardcode.
-
 ### Base URL
 
 ```
 https://wkevmsedchftztoolkmi.supabase.co
 ```
 
-Configurable via the `supabaseUrl` prop.
+### API Calls Made
 
-### API Call Patterns
+| When | Endpoint | Method | Purpose |
+|------|----------|--------|---------|
+| On mount | `GET /rest/v1/earn_factor_group?select=...&order=created_at.desc` | REST | List all earn factor groups |
+| Per group | `POST /rest/v1/rpc/bff_get_earn_factors_by_group` | RPC | Get factors for a group (group ID injected into each factor on frontend) |
+| On mount | `POST /rest/v1/rpc/bff_get_all_earn_conditions_groups` | RPC | List all condition groups |
+| Per cond group | `POST /rest/v1/rpc/bff_get_earn_conditions_group` | RPC | Get condition details (thresholds, operators) |
+| On mount | `POST /rest/v1/rpc/get_all_entity_options` | RPC | All entities for condition dropdowns |
+| Create factor group | `POST /rest/v1/rpc/bff_upsert_earn_factor_group` | RPC | Create group with empty factors array |
+| Save factor | `POST /rest/v1/rpc/bff_get_earn_factor_group_details` then `bff_upsert_earn_factor_group` | RPC | Fetch-merge-upsert pattern for factor edits |
+| Save condition group | `POST /rest/v1/rpc/bff_upsert_earn_conditions_group` | RPC | Create/update conditions atomically |
+| Connect factor | `bff_get_earn_factor_group_details` then `bff_upsert_earn_factor_group` | RPC | Update factor's `earn_conditions_group_id` |
 
-The component uses two patterns:
-
-1. **RPC calls** — `POST /rest/v1/rpc/{function_name}` with JSON body
-2. **REST auto-CRUD** — `GET /rest/v1/{table_name}?query` for simple listing
-
----
-
-## API Reference — Every Call The Component Makes
-
-### On Mount (Initial Load)
-
-When the component mounts and `authToken` is present, it calls `loadAll()` which fires three parallel requests:
-
-#### 1. Load Earn Factor Groups
-
+**Important implementation detail:** `bff_get_earn_factors_by_group` does NOT return `earn_factor_group_id` in its response. The frontend injects it:
+```javascript
+m[g.id] = factors.map(f => ({ ...f, earn_factor_group_id: f.earn_factor_group_id || g.id }));
 ```
-GET /rest/v1/earn_factor_group?select=id,name,stackable,window_start,window_end,active_status,created_at&order=created_at.desc
-```
-
-Returns an array of group rows. Then for **each group**, fetches its factors:
-
-```
-POST /rest/v1/rpc/bff_get_earn_factors_by_group
-Body: { "p_earn_factor_group_id": "<group_uuid>" }
-```
-
-**Returns:** Array of factor objects, each with `id`, `earn_factor_type`, `earn_factor_amount`, `target_currency`, `target_entity_id`, `target_entity_name`, `public`, `active_status`, `window_start`, `window_end`, `window_end_ttl_days`, `has_time_conditions`, `earn_conditions_group_id`, `earn_conditions_group_name`, `conditions` (preview of linked conditions).
-
-#### 2. Load Earn Condition Groups
-
-```
-POST /rest/v1/rpc/bff_get_all_earn_conditions_groups
-Body: {}
-```
-
-**Returns:** Array of condition group objects with `id`, `name`, `conditions` (array of `{ id, filter_type, filter_ids, created_at }`), `conditions_count`.
-
-Then for **each group**, fetches full details (including threshold info):
-
-```
-POST /rest/v1/rpc/bff_get_earn_conditions_group
-Body: { "p_mode": "edit", "p_group_id": "<group_uuid>" }
-```
-
-**Returns:** Object with `id`, `name`, `merchant_id`, `conditions` array — each condition has `id`, `entity`, `entity_ids`, `threshold_unit`, `min_threshold`, `max_threshold`, `apply_to_excess_only`, `operator`.
-
-#### 3. Load Entity Options (for dropdowns)
-
-```
-POST /rest/v1/rpc/get_all_entity_options
-Body: {}
-```
-
-**Returns:** Array of `{ entity_type, id, name }` for all products, SKUs, brands, categories, stores, store attribute sets, tiers, and personas belonging to the merchant. Filtered client-side by selected entity type.
-
----
-
-### Create Earn Factor Group (Modal)
-
-When the user clicks "Create" above the left column and fills out the modal:
-
-```
-POST /rest/v1/rpc/bff_upsert_earn_factor_group
-Body: {
-  "p_group_data": {
-    "name": "Standard Earning Rule",
-    "stackable": true,
-    "window_start": "2026-03-01T00:00:00.000Z",  // or null
-    "window_end": "2026-06-30T00:00:00.000Z",     // or null
-    "factors": []
-  }
-}
-```
-
-**Returns:** `{ success, code, title, description, group_id, group_created, factors_created, ... }`
-
-After success → reloads all factor groups, emits `earn-factor-group-saved` trigger event.
-
----
-
-### Add / Edit Earn Factor (Sidebar Panel)
-
-When the user edits a factor in the sidebar and clicks Save, the component:
-
-1. **Fetches current group state** to get all existing factors:
-   ```
-   POST /rest/v1/rpc/bff_get_earn_factor_group_details
-   Body: { "p_mode": "edit", "p_earn_factor_group_id": "<group_uuid>" }
-   ```
-
-2. **Merges the edited factor** into the factors array (replaces by ID, or appends if new)
-
-3. **Upserts the entire group** with the updated factors array:
-   ```
-   POST /rest/v1/rpc/bff_upsert_earn_factor_group
-   Body: {
-     "p_group_data": {
-       "id": "<group_uuid>",
-       "factors": [
-         {
-           "id": "<factor_uuid>",          // null for new
-           "earn_factor_type": "rate",      // or "multiplier"
-           "earn_factor_amount": 100,
-           "target_currency": "points",     // or "ticket"
-           "target_entity_id": null,        // ticket_type UUID if ticket
-           "public": true,
-           "window_start": "2026-03-01T00:00:00.000Z",
-           "window_end": null,
-           "window_end_ttl_days": 30,
-           "active_status": true,
-           "has_time_conditions": false,
-           "earn_conditions_group_id": "<condition_group_uuid>"  // the connection
-         },
-         // ... other factors in the group
-       ]
-     }
-   }
-   ```
-
-**Important:** The upsert function handles create/update/delete of factors atomically — factors not in the array get deleted, existing ones get updated, new ones get inserted.
-
-After success → reloads factor groups, closes panel, updates connection lines, emits `earn-factor-saved` trigger event.
-
----
-
-### Create / Edit Earn Condition Group (Sidebar Panel)
-
-When the user edits a condition group in the sidebar and clicks Save:
-
-```
-POST /rest/v1/rpc/bff_upsert_earn_conditions_group
-Body: {
-  "p_config": {
-    "id": "<group_uuid>",       // null for new
-    "name": "Tier Perks",
-    "conditions": [
-      {
-        "id": "<condition_uuid>",         // null for new
-        "entity": "tier",                  // enum: product_product, product_sku, product_brand, product_category, store, store_attribute_set, tier, persona
-        "entity_ids": ["<uuid1>", "<uuid2>"],
-        "operator": "OR",                  // OR | AND | EACH
-        "threshold_unit": "amount",        // null | amount | quantity_primary | quantity_secondary
-        "min_threshold": 5000,             // or null
-        "max_threshold": 50000,            // or null
-        "apply_to_excess_only": false
-      },
-      {
-        "entity": "product_category",
-        "entity_ids": ["<shoes_cat_uuid>"],
-        "operator": "OR",
-        "threshold_unit": null,
-        "min_threshold": null,
-        "max_threshold": null,
-        "apply_to_excess_only": false
-      }
-    ]
-  }
-}
-```
-
-**Returns:** `{ success, code, title, description, group: { id, name, action }, conditions: { inserted, updated, deleted, total } }`
-
-Conditions not in the array get deleted. After success → reloads condition groups, closes panel, emits `earn-condition-group-saved` trigger event.
-
----
-
-### Link Factor to Condition Group (Connect Popup)
-
-When the user hovers a factor row and clicks the "+" button, then selects a condition group from the popup:
-
-1. **Fetches current group state:**
-   ```
-   POST /rest/v1/rpc/bff_get_earn_factor_group_details
-   Body: { "p_mode": "edit", "p_earn_factor_group_id": "<group_uuid>" }
-   ```
-
-2. **Updates the factor's `earn_conditions_group_id`** in the factors array
-
-3. **Upserts the group:**
-   ```
-   POST /rest/v1/rpc/bff_upsert_earn_factor_group
-   Body: {
-     "p_group_data": {
-       "id": "<group_uuid>",
-       "factors": [
-         { "id": "<factor_uuid>", "earn_conditions_group_id": "<selected_condition_group_uuid>", ... },
-         // ... other factors unchanged
-       ]
-     }
-   }
-   ```
-
-After success → reloads factor groups, updates SVG connection lines, emits `connection-changed` trigger event.
-
-This is the same API call as editing a factor — the connection is stored as the `earn_conditions_group_id` field on the `earn_factor` row.
 
 ---
 
@@ -292,142 +184,42 @@ This is the same API call as editing a factor — the connection is stored as th
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `supabaseUrl` | Text | `https://wkevmsedchftztoolkmi.supabase.co` | Supabase project URL |
-| `supabaseAnonKey` | Text | *(hardcoded CRM anon key)* | Public API key for `apikey` header |
-| `authToken` | Text | *(empty — must bind)* | Admin user JWT from Supabase auth session |
-| `leftColumnWidth` | Length | `420px` | Width of earn factor groups column |
-| `rightColumnWidth` | Length | `420px` | Width of earn condition groups column |
-| `connectionLineColor` | Color | `#C9CCCF` | Default color of SVG connection lines |
-| `connectionLineActiveColor` | Color | `#005BD3` | Color when hovering a connection line |
-| `configPanelWidth` | Length | `380px` | Width of sidebar config panels |
+| `supabaseAnonKey` | Text | *(hardcoded CRM anon key)* | Public API key |
+| `authToken` | Text | *(must bind)* | Admin user JWT |
+| `leftColumnWidth` | Length | `580px` | Left column width |
+| `rightColumnWidth` | Length | `580px` | Right column width |
+| `connectionLineColor` | Color | `#C9CCCF` | Default line color |
+| `connectionLineActiveColor` | Color | `#005BD3` | Hovered line color |
+| `configPanelWidth` | Length | `400px` | Sidebar panel width |
 
----
+## Trigger Events
 
-## Trigger Events (emitted to WeWeb)
+| Event | When | Payload |
+|-------|------|---------|
+| `data-loaded` | After initial load | `{ factorGroupCount, conditionGroupCount }` |
+| `earn-factor-group-saved` | Group created/updated | `{ groupId, groupName, action }` |
+| `earn-factor-saved` | Factor created/updated | `{ factorId, factorType, groupId }` |
+| `earn-condition-group-saved` | Condition group saved | `{ groupId, groupName, action }` |
+| `connection-changed` | Factor linked/unlinked | `{ factorId, conditionGroupId, action }` |
+| `error` | Any API failure | `{ message, code }` |
 
-| Event Name | When Fired | Payload |
-|------------|-----------|---------|
-| `data-loaded` | After initial data load completes | `{ factorGroupCount, conditionGroupCount }` |
-| `earn-factor-group-saved` | After creating/updating a factor group | `{ groupId, groupName, action }` |
-| `earn-factor-saved` | After creating/updating an earn factor | `{ factorId, factorType, groupId }` |
-| `earn-condition-group-saved` | After creating/updating a condition group | `{ groupId, groupName, action }` |
-| `connection-changed` | After linking/unlinking a factor to a condition group | `{ factorId, conditionGroupId, action }` |
-| `error` | On any API failure | `{ message, code }` |
-
----
-
-## Actions (callable from WeWeb workflows)
+## Actions
 
 | Action | Description |
 |--------|-------------|
-| `refreshData` | Reloads all earn factor groups, factors, and condition groups from the database |
-| `closePanel` | Closes any open sidebar config panel |
+| `refreshData` | Reload all data from Supabase |
+| `closePanel` | Close any open sidebar panel |
 
 ---
 
-## File Structure
+## Database Tables
 
-```
-src/
-├── wwElement.vue                        # Main orchestrator
-│   - Renders two-column layout
-│   - Manages all state (data, UI, panels)
-│   - Computes displayedConditionGroups with duplication rule
-│   - Handles all save/connect flows
-│   - Draws SVG connection lines between factor rows and condition cards
-│
-├── useApi.js                            # API layer
-│   - getHeaders() builds auth headers from props
-│   - rpc() for POST /rest/v1/rpc/{fn} calls
-│   - restGet() for GET /rest/v1/{table} calls
-│   - Named methods for each endpoint
-│
-└── components/
-    ├── EarnFactorGroupCard.vue          # Left column card
-    │   - Collapsed: group name, factor count badge, "+ Add earn factor", edit, chevron
-    │   - Expanded: list of factor rows with type icon, name, meta, multiplier badge
-    │   - Hover on factor: shows "+" connect button on right edge
-    │
-    ├── EarnConditionGroupCard.vue       # Right column card
-    │   - Collapsed: group name, condition count badge, linked factor count (plug icon), chevron
-    │   - Expanded: conditions table (Type, Items count, Logic, Threshold type, Excess)
-    │   - Connection dot on left edge for SVG line endpoints
-    │
-    ├── EarnFactorConfig.vue             # Right sidebar panel for factor editing
-    │   - Fields: name, type (rate/multiplier), amount, target currency, target entity,
-    │     window start/end, expiry days, public/private toggle, condition group dropdown
-    │   - Save writes factor into its parent group via bff_upsert_earn_factor_group
-    │
-    ├── EarnConditionGroupConfig.vue     # Right sidebar panel for condition group editing
-    │   - Group name field
-    │   - Repeatable condition entries, each with:
-    │     entity type dropdown, entity multi-select picker, operator toggle (OR/AND/EACH),
-    │     threshold type, apply-to-excess toggle, min/max threshold inputs
-    │   - Entity picker modal with search + checkbox selection
-    │   - Save writes via bff_upsert_earn_conditions_group
-    │
-    ├── CreateGroupModal.vue             # Modal for creating new groups
-    │   - Factor group: name, stackable toggle, window start/end
-    │   - Condition group: name only
-    │
-    └── ConnectPopup.vue                 # Popup for linking factor → condition group
-        - Lists all condition groups with search
-        - Click to select → saves connection → line appears
-```
-
----
-
-## Data Flow Summary
-
-```
-                           ┌─────────────────────────────────┐
-                           │       Supabase PostgreSQL        │
-                           │                                  │
-                           │  earn_factor_group               │
-                           │  earn_factor                     │
-                           │  earn_conditions_group           │
-                           │  earn_conditions                 │
-                           └──────────┬──────────────────────┘
-                                      │
-                                      │  fetch() with apikey + Bearer JWT
-                                      │
-                    ┌─────────────────┴─────────────────┐
-                    │          useApi.js                  │
-                    │  rpc()  →  POST /rest/v1/rpc/{fn}  │
-                    │  restGet() → GET /rest/v1/{table}   │
-                    └─────────────────┬─────────────────┘
-                                      │
-                    ┌─────────────────┴─────────────────┐
-                    │         wwElement.vue               │
-                    │                                     │
-                    │  factorGroups[]                     │
-                    │  factorsByGroup{}                   │
-                    │  allConditionGroupsList[]           │
-                    │  conditionGroupDetailsCache{}       │
-                    │  allEntityOptions[]                 │
-                    │                                     │
-                    │  displayedConditionGroups (computed) │
-                    │  connectionLines (computed from DOM) │
-                    └──┬──────────┬──────────┬──────────┘
-                       │          │          │
-              ┌────────┘   ┌──────┘   ┌──────┘
-              ▼            ▼          ▼
-    EarnFactorGroupCard  SVG Lines  EarnConditionGroupCard
-              │                      │
-              ▼                      ▼
-    EarnFactorConfig          EarnConditionGroupConfig
-    (sidebar save → API)      (sidebar save → API)
-```
-
----
-
-## Database Tables Involved
-
-| Table | Purpose |
-|-------|---------|
-| `earn_factor_group` | Group container: `id`, `name`, `stackable`, `window_start`, `window_end`, `active_status`, `merchant_id` |
-| `earn_factor` | Individual rule: `id`, `earn_factor_type` (rate/multiplier), `earn_factor_amount`, `target_currency` (points/ticket), `target_entity_id`, `public`, `window_*`, `earn_factor_group_id` FK, `earn_conditions_group_id` FK |
-| `earn_conditions_group` | Condition container: `id`, `name`, `merchant_id` |
-| `earn_conditions` | Individual condition: `id`, `group_id` FK, `entity` (enum), `entity_ids` (uuid[]), `operator`, `threshold_unit`, `min_threshold`, `max_threshold`, `apply_to_excess_only`, `exclude` |
+| Table | Key Columns |
+|-------|-------------|
+| `earn_factor_group` | `id`, `name`, `stackable`, `window_start`, `window_end`, `active_status`, `merchant_id` |
+| `earn_factor` | `id`, `earn_factor_type` (rate/multiplier), `earn_factor_amount`, `target_currency` (points/ticket), `target_entity_id`, `public`, `window_*`, `earn_factor_group_id` FK, `earn_conditions_group_id` FK |
+| `earn_conditions_group` | `id`, `name`, `merchant_id` |
+| `earn_conditions` | `id`, `group_id` FK, `entity` (enum), `entity_ids` (uuid[]), `operator`, `threshold_unit`, `min_threshold`, `max_threshold`, `apply_to_excess_only`, `exclude` |
 
 ### Enums
 
@@ -439,13 +231,21 @@ src/
 
 ## Save Behavior
 
-There is **no page-level save**. Each entity saves independently:
+No page-level save. Each entity saves independently:
 
-| Entity | Save Trigger | API Called |
-|--------|-------------|-----------|
-| Earn Factor Group | "Create" modal → Save button | `bff_upsert_earn_factor_group` |
-| Earn Factor | Sidebar config → Save button | `bff_upsert_earn_factor_group` (with full factors array) |
-| Earn Condition Group + Conditions | Sidebar config → Save button | `bff_upsert_earn_conditions_group` |
-| Factor ↔ Condition link | "+" popup → select group, OR sidebar dropdown | `bff_upsert_earn_factor_group` (updates `earn_conditions_group_id`) |
+| Entity | Trigger | API |
+|--------|---------|-----|
+| Earn Factor Group | Create modal → Save | `bff_upsert_earn_factor_group` |
+| Earn Factor | Sidebar → Save | `bff_upsert_earn_factor_group` (fetch-merge-upsert) |
+| Earn Condition Group | Sidebar → Save | `bff_upsert_earn_conditions_group` |
+| Factor ↔ Condition link | "+" popup select, or sidebar dropdown | `bff_upsert_earn_factor_group` |
 
-All upsert functions are atomic — they handle insert/update/delete within a single database transaction using `SECURITY DEFINER` functions scoped to the authenticated merchant.
+---
+
+## Styling
+
+- Built on `polaris-weweb-styles` v2.2.0 (GitHub: `rangwan-rocket/polaris-weweb-styles`)
+- Uses Polaris design tokens: `--p-color-*`, `--p-space-*`, `--p-font-*`, `--p-border-radius-*`, `--p-shadow-*`
+- Uses Polaris mixins: `polaris-button-primary`, `polaris-button-plain`, `polaris-input`, `polaris-select`, `polaris-radio`, `polaris-spinner`, `polaris-text-title`, `polaris-text-subtitle`, `polaris-text-description`, `polaris-separator-dot`, `polaris-card-bordered`
+- Group colors: 8-color deterministic palette hashed by group ID
+- Inter font throughout matching Figma specs
