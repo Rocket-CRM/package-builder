@@ -243,6 +243,8 @@ export default {
       await Promise.all([loadFactorGroups(), loadCondGroups(), loadEntities()]);
       emit('trigger-event', { name: 'data-loaded', event: { factorGroupCount: factorGroups.value?.length, conditionGroupCount: allCondGroups.value?.length } });
       scheduleLineUpdate();
+      setTimeout(scheduleLineUpdate, 300);
+      setTimeout(scheduleLineUpdate, 800);
     }
     async function loadFactorGroups() {
       loadingFactorGroups.value = true;
@@ -266,21 +268,47 @@ export default {
     async function loadEntities() { try { entityOptions.value = await api.fetchEntityOptions() || []; } catch (e) { err('Load failed', e); } }
     function err(m, e) { console.error(m, e); emit('trigger-event', { name: 'error', event: { message: m, code: 'ERR' } }); }
 
-    function scheduleLineUpdate() { clearTimeout(lineTimer); lineTimer = setTimeout(() => nextTick(rebuildLines), 80); }
+    function scheduleLineUpdate() {
+      clearTimeout(lineTimer);
+      lineTimer = setTimeout(() => nextTick(rebuildLines), 150);
+    }
+
     function rebuildLines() {
-      const layout = layoutRef.value; if (!layout) return;
-      const lr = layout.getBoundingClientRect(); const newLines = [];
+      const root = rootRef.value;
+      if (!root) return;
+
+      const layout = layoutRef.value;
+      if (!layout) return;
+
+      const lr = layout.getBoundingClientRect();
+      const newLines = [];
+
       for (const f of connectedFactors.value) {
         const cid = f.earn_conditions_group_id;
-        const fEl = layout.querySelector(`[data-factor-id="${f.id}"]`);
-        const cEl = layout.querySelector(`[data-cg-key="${cid}__${f.id}"]`);
+        if (!cid) continue;
+
+        const dk = `${cid}__${f.id}`;
+        const doc = typeof wwLib !== 'undefined' ? wwLib.getFrontDocument() : document;
+        const fEl = root.querySelector(`[data-factor-id="${f.id}"]`) || doc.querySelector(`[data-factor-id="${f.id}"]`);
+        const cEl = root.querySelector(`[data-cg-key="${dk}"]`) || doc.querySelector(`[data-cg-key="${dk}"]`);
+
         if (!fEl || !cEl) continue;
-        const fR = fEl.getBoundingClientRect(), cR = cEl.getBoundingClientRect();
-        const x1 = fR.right - lr.left, y1 = fR.top + fR.height/2 - lr.top;
-        const x2 = cR.left - lr.left, y2 = cR.top + cR.height/2 - lr.top;
-        const cp = Math.max((x2-x1)*0.4, 30);
-        newLines.push({ key: `${f.id}__${cid}`, d: `M ${x1} ${y1} C ${x1+cp} ${y1}, ${x2-cp} ${y2}, ${x2} ${y2}` });
+
+        const fR = fEl.getBoundingClientRect();
+        const cR = cEl.getBoundingClientRect();
+
+        const x1 = fR.right - lr.left;
+        const y1 = fR.top + fR.height / 2 - lr.top;
+        const x2 = cR.left - lr.left;
+        const y2 = cR.top + cR.height / 2 - lr.top;
+
+        if (x2 <= x1) continue;
+
+        const cp = Math.max((x2 - x1) * 0.4, 40);
+        const d = `M ${x1} ${y1} C ${x1 + cp} ${y1}, ${x2 - cp} ${y2}, ${x2} ${y2}`;
+        newLines.push({ key: `${f.id}__${cid}`, d });
       }
+
       lines.value = newLines;
     }
 
