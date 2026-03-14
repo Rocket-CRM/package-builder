@@ -55,7 +55,7 @@
         <div class="es__col-label es__col-label--right">Earn conditions group</div>
       </div>
 
-      <div v-if="loadingFactorGroups" class="es__loading"><div class="es__spinner"></div></div>
+      <div v-if="loadingFactorGroups && !factorGroups?.length" class="es__loading"><div class="es__spinner"></div></div>
 
       <template v-else>
         <!-- ═══ LINKED GROUPS ═══ -->
@@ -588,6 +588,10 @@ export default {
 
     async function handleDeleteFactorGroup({ groupId }) {
       try {
+        const factors = factorsByGroup.value[groupId] || [];
+        for (const f of factors) {
+          if (f?.id) await api.deleteEarnFactor(f.id);
+        }
         await api.deleteEarnFactorGroup(groupId);
         await loadFactorGroups();
         showModal.value = false;
@@ -601,7 +605,19 @@ export default {
 
     async function handleDeleteCondGroup({ groupId }) {
       try {
+        const allF = Object.values(factorsByGroup.value || {}).flat();
+        const linkedFactors = allF.filter(f => f?.earn_conditions_group_id === groupId);
+        for (const f of linkedFactors) {
+          const gid = f.earn_factor_group_id;
+          if (!gid) continue;
+          const det = await api.fetchEarnFactorGroupDetails(gid);
+          const updatedFactors = (det?.factors || []).map(df =>
+            df.id === f.id ? { ...df, earn_conditions_group_id: null } : df
+          );
+          await api.upsertEarnFactorGroup({ id: gid, factors: updatedFactors });
+        }
         await api.deleteConditionGroup(groupId);
+        await loadFactorGroups();
         await loadCondGroups();
         panel.value = null;
         addToast('success', 'Condition Group Deleted', 'Earn condition group deleted successfully');

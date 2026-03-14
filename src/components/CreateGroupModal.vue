@@ -177,11 +177,13 @@ export default {
   &__input { @include polaris-input; }
   &__date-input {
     @include polaris-date-field;
+    position: relative;
     &::-webkit-calendar-picker-indicator {
       opacity: 0;
       position: absolute;
       right: 0;
-      width: 40px;
+      top: 0;
+      width: 100%;
       height: 100%;
       cursor: pointer;
     }
