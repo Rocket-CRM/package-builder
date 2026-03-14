@@ -8,52 +8,55 @@ Earn Studio is a **visual mapping builder** for configuring how customers earn l
 2. **Earn Conditions** — Qualifying criteria that gate when a factor applies (e.g. "only for Gold tier members" or "only for Nike products with ≥50 units purchased")
 3. **The link between them** — Which earn factors use which condition groups, visualized as connection lines
 
-The component renders as a two-column layout with SVG bezier connection lines between them, following the [Hookdeck connection visualization](https://hookdeck.com/) pattern.
+The component renders as a group-row based layout with SVG bezier connection lines between left (factors) and right (conditions) columns.
 
 ---
 
 ## Current Architecture
 
-### Layout Design (Hookdeck-inspired)
+### Layout Design
 
 ```
-LEFT (520px)                                    RIGHT (480px)
-┌──────────────────────────────┐                ┌────────────────────────────┐
-│▌ Points Starter Rules        │  ───bezier───  │● Mock Tier Conditions  3   │
-│▌  Standard · Points (Rate)   │                │  3 conditions · 2 linked   │
-└──────────────────────────────┘                └────────────────────────────┘
-┌──────────────────────────────┐                ┌────────────────────────────┐
-│▌ Points Power Boost      3x  │  ───bezier───  │● Product Picks  2          │
-│▌  VIP Ultra · Points (Mult)  │                │  2 conditions · 1 linked   │
-└──────────────────────────────┘                └────────────────────────────┘
+LEFT (560px)                                              RIGHT (480px)
+┌────────────┐ ┌──────────────────────────────┐           ┌────────────────────────────────────┐
+│▌           │ │ 🏷 Points Starter Rules ฿100  │ ─bezier─ │ ≡ Untitled Conditions Group    ∧   │
+│▌ Untitled  │ │    Points (Base rate)         │           │   2 conditions  🔗1                │
+│▌ Group     │ ├──────────────────────────────┤           │   Type  Items  Logic  Thresh  Excs │
+│▌      + ✏  │ │ ⚡ Points Power Boost    3x   │           │   SKU    1●    OR     -       No   │
+│▌           │ │    Points (Multiplier)        │           │   Brand  1●    OR     -       No   │
+└────────────┘ └──────────────────────────────┘           └────────────────────────────────────┘
 
-─── UNLINKED ──────────────────
+─── UNLINKED ──────────────────────
 
-🟥 Untitled Group  + Add earn factor  ✏️
-🟦 Earn Factor Group 945f15e9  + Add earn factor
-┌──────────────────────────────┐                ┌────────────────────────────┐
-│  Points Starter Rules        │                │  awefawef  1               │
-│  Points (Base rate)          │                │  1 condition               │
-└──────────────────────────────┘                └────────────────────────────┘
+LEFT: sidebar + cards (dimmed)                   RIGHT: unlinked condition groups
+┌────────────┐ ┌──────────────────┐              ┌──────────────────────────┐
+│▌ EFG 10... │ │ ⚡ Power Boost 2x │              │ ≡ Untitled  2 conditions │
+│▌      + ✏  │ └──────────────────┘              └──────────────────────────┘
+└────────────┘                                   ┌──────────────────────────┐
+┌────────────┐                                   │ ≡ aefawefawef 3 conds    │
+│▌ Empty Grp │ (no cards — sidebar only)         └──────────────────────────┘
+│▌      + ✏  │
+└────────────┘
 ```
 
 **Key layout decisions:**
 
-- **Both columns use 60px fixed-height cards** — ensures rows align horizontally for straight connection lines
-- **Connected factors sort to the top** — factors with `earn_conditions_group_id` appear first on the left
-- **Unlinked groups/factors at the bottom** — separated by a subtle "UNLINKED" divider
-- **Group identity is inline** — shown as a colored 4px left accent bar + colored group name in the card subtitle (no container boxes or section headers that would break row alignment)
-- **Right column duplicates condition groups** per linked factor (Hookdeck pattern) — if 3 factors link to "Tier Perks", it appears 3 times on the right, one per row
-- **SVG overlay** covers the full layout with `position: absolute`, `pointer-events: none` (paths have `pointer-events: stroke` for hover)
-- **Connection lines** use bezier curves (`M x1 y1 C cp1 y1, cp2 y2, x2 y2`) for smooth routing
+- **Group-row layout** — each earn factor group renders as a full-width row: sidebar panel on the left + factor cards + right column condition slots
+- **Group sidebar panel (160px)** — colored 4px internal accent strip, group name (wrapping text), add (+) and edit (✏) icon buttons, `min-height: 60px` matching card height
+- **Factor cards (60px fixed height)** — tag icon for rate, lightning bolt icon for multiplier; rate shows `฿{amount}`, multiplier shows `{amount}x`
+- **Condition cards expandable** — chevron toggle expands to show conditions table (Type, Items, Logic, Threshold type, Excess); connection badge shows link icon + count
+- **Linked groups at top** — groups with at least one condition-linked factor appear first
+- **Unlinked section at bottom** — two-column row: left has unlinked groups with factors (dimmed) + empty groups (sidebar only), right has unlinked condition groups
+- **SVG overlay** covers the full layout with `position: absolute`, `pointer-events: none`
+- **Connection lines** use bezier curves anchored to factor card center-right → condition header center-left (top: 30px for expanded cards)
 
 ### Data Attribute DOM Query Pattern
 
-Connection lines are drawn by querying the DOM directly — no Vue ref emit chains:
+Connection lines are drawn by querying the DOM directly:
 
-- Factor cards: `data-factor-id="<uuid>"` set directly in the parent template
-- Condition cards: `data-cg-key="<condGroupId>__<factorId>"` set on the card div
-- `rebuildLines()` uses `root.querySelector('[data-factor-id="..."]')` with fallback to `wwLib.getFrontDocument()` for WeWeb's runtime environment
+- Factor cards: `data-factor-id="<uuid>"`
+- Condition cards: `data-cg-key="<condGroupId>__<factorId>"`
+- `rebuildLines()` uses `root.querySelector` with fallback to `wwLib.getFrontDocument()` for WeWeb runtime
 
 ---
 
@@ -62,27 +65,31 @@ Connection lines are drawn by querying the DOM directly — no Vue ref emit chai
 ### Working
 
 - Data loading: factor groups, factors per group, condition groups, condition details, entity options
-- Left column: connected factors at top with colored group accent + inline group name, unlinked groups at bottom
-- Right column: condition group cards with duplication rule, condition count, linked count
+- Left column: group sidebar panel + factor cards per group, sorted (linked first, unlinked at bottom)
+- Right column: expandable condition group cards with conditions table, connection count badges
+- Factor card icons: tag (rate) / lightning bolt (multiplier) with amount badges
+- Expandable condition groups: chevron toggle shows/hides conditions detail table
 - Create Earn Factor Group modal (name, stackable, window dates)
-- Edit Earn Factor sidebar panel (all fields matching Figma design)
+- Edit Earn Factor sidebar panel (all fields)
 - Edit Earn Condition Group sidebar panel (condition list with entity picker, operator toggle, thresholds)
 - Connect popup: "+" button on factor card hover → popup lists condition groups → select to link
-- Group ID injection: `bff_get_earn_factors_by_group` response doesn't include `earn_factor_group_id`, so it's injected from the query context when storing factors
+- Group ID injection: `bff_get_earn_factors_by_group` response doesn't include `earn_factor_group_id`, so it's injected from the query context
+- SVG bezier connection lines between factor cards and condition cards
+- Line rebuild on data load, resize, panel open/close, condition expand/collapse
 
 ### Known Issues (to fix in next iteration)
 
-1. **SVG connection lines may not render in WeWeb editor** — `querySelector` with `data-*` attributes works in standard DOM but may fail in WeWeb's shadow DOM or iframe context. Current fix uses `rootRef` + `wwLib.getFrontDocument()` fallback, but this needs verification in the live editor. The `lines` reactive array populates correctly but SVG paths may not be visible.
+1. **Condition table styling** — table cells may appear cutoff or not match the Figma reference design. Items should show as pink pill badges with eye icon; Threshold type should show clipboard icon. Current implementation has the elements but alignment/spacing needs refinement to match Figma (ref: `node-id=1104-17765`).
 
-2. **Line rebuild timing** — `scheduleLineUpdate` fires at 150ms delay with 300ms/800ms retries after data load. If the DOM hasn't rendered by then (e.g. large dataset), lines won't appear until the next trigger (scroll, resize, panel open). A MutationObserver or IntersectionObserver approach may be more reliable.
+2. **Config sidebar panel not floating** — the EarnFactorConfig and EarnConditionGroupConfig panels should float/overlay on top of the content (like a drawer), but currently push content or don't properly overlay. This may be a limitation of the `@weweb/cli` build system or the transition CSS. Needs investigation — Figma ref: `node-id=1089-79631`.
 
-3. **Condition group card click to expand** — clicking a condition group card on the right toggles an expanded state (`expandedRight`), but no detail table is rendered inline since the cards are now 60px fixed height and rendered directly in the parent template. The detail expansion was removed during the height-unification refactor.
+3. **SVG connection lines may not render in WeWeb editor** — `querySelector` with `data-*` attributes works in standard DOM but may fail in WeWeb's shadow DOM or iframe context.
 
-4. **EarnConditionGroupCard.vue and EarnFactorGroupCard.vue still exist** in `/src/components/` but are **no longer imported by wwElement.vue** — the main template now renders both columns inline. These files are dead code and should be cleaned up or re-integrated.
+4. **Line rebuild timing** — `scheduleLineUpdate` fires at 150ms delay with 300ms/800ms retries. MutationObserver approach may be more reliable for large datasets.
 
-5. **No delete functionality exposed in UI** — delete API functions exist in `useApi.js` (`deleteEarnFactor`, `deleteEarnFactorGroup`, `deleteConditionGroup`, `deleteCondition`) but no UI buttons or confirmation dialogs call them.
+5. **EarnConditionGroupCard.vue and EarnFactorGroupCard.vue** in `/src/components/` are **dead code** — not imported by wwElement.vue.
 
-6. **Sidebar "Assign earn condition group" dropdown** doesn't show condition group details (condition count, entity types) — just the name. Could be improved with a richer dropdown or the ConnectPopup pattern.
+6. **No delete functionality in UI** — delete API functions exist in `useApi.js` but no UI buttons call them.
 
 ---
 
@@ -96,12 +103,15 @@ earn-studio/
 ├── README.md                             # Dev setup + gap tracking
 │
 └── src/
-    ├── wwElement.vue                     # Main component (all rendering + state + API orchestration)
-    │   - Two-column layout with inline cards (no child card components used)
-    │   - SVG absolute overlay for connection lines
-    │   - DOM query pattern: data-factor-id, data-cg-key
-    │   - Computed: connectedFactors, unconnectedEntries, rightEntries
-    │   - 60px unified card height for alignment
+    ├── wwElement.vue                     # Main component — full rendering + state + API
+    │   - Group-row layout: sidebar + factor cards | condition slots
+    │   - SVG absolute overlay for bezier connection lines
+    │   - DOM query: data-factor-id, data-cg-key
+    │   - Computed: linkedGroupEntries, unlinkedGroupsWithFactors, emptyGroups
+    │   - Expandable condition cards with conditions table
+    │   - Factor icons: tag (rate), lightning (multiplier)
+    │   - Connection count badges (link icon + number)
+    │   - 60px unified card height, 160px sidebar width
     │
     ├── useApi.js                         # Supabase RPC/REST API layer
     │   - getHeaders(): apikey + Bearer token from props
@@ -113,28 +123,22 @@ earn-studio/
         ├── EarnFactorConfig.vue          # Sidebar: edit/create earn factor
         │   - Fields: name, type (rate/multiplier), amount, target currency,
         │     window start/end, expiry days, public/private, condition group dropdown
-        │   - Redesigned to match Figma: 24px padding, 13px Inter, clean field spacing
-        │   - Save: emits { groupId, factor } → parent upserts via bff_upsert_earn_factor_group
+        │   - Save: emits { groupId, factor } → parent upserts
         │
         ├── EarnConditionGroupConfig.vue  # Sidebar: edit/create condition group
         │   - Group name field
         │   - Repeatable condition entries with entity type, entity multi-select,
         │     operator toggle (OR/AND/EACH), threshold type, excess toggle, min/max
         │   - Entity picker modal with search + checkbox selection
-        │   - Save: emits payload → parent upserts via bff_upsert_earn_conditions_group
         │
         ├── CreateGroupModal.vue          # Modal: create new earn factor group
         │   - Fields: name, stackable toggle, window start/end
         │
         ├── ConnectPopup.vue              # Popup: link factor → condition group
         │   - Searchable list of all condition groups
-        │   - Click to select → parent saves connection via bff_upsert_earn_factor_group
         │
-        ├── EarnFactorGroupCard.vue       # ⚠️ DEAD CODE — not imported by wwElement.vue
-        │   - Was the left column card component before inline rendering
-        │
-        └── EarnConditionGroupCard.vue    # ⚠️ DEAD CODE — not imported by wwElement.vue
-            - Was the right column card component before inline rendering
+        ├── EarnFactorGroupCard.vue       # ⚠️ DEAD CODE — not imported
+        └── EarnConditionGroupCard.vue    # ⚠️ DEAD CODE — not imported
 ```
 
 ---
@@ -168,11 +172,11 @@ https://wkevmsedchftztoolkmi.supabase.co
 | Per cond group | `POST /rest/v1/rpc/bff_get_earn_conditions_group` | RPC | Get condition details (thresholds, operators) |
 | On mount | `POST /rest/v1/rpc/get_all_entity_options` | RPC | All entities for condition dropdowns |
 | Create factor group | `POST /rest/v1/rpc/bff_upsert_earn_factor_group` | RPC | Create group with empty factors array |
-| Save factor | `POST /rest/v1/rpc/bff_get_earn_factor_group_details` then `bff_upsert_earn_factor_group` | RPC | Fetch-merge-upsert pattern for factor edits |
+| Save factor | `bff_get_earn_factor_group_details` then `bff_upsert_earn_factor_group` | RPC | Fetch-merge-upsert pattern for factor edits |
 | Save condition group | `POST /rest/v1/rpc/bff_upsert_earn_conditions_group` | RPC | Create/update conditions atomically |
 | Connect factor | `bff_get_earn_factor_group_details` then `bff_upsert_earn_factor_group` | RPC | Update factor's `earn_conditions_group_id` |
 
-**Important implementation detail:** `bff_get_earn_factors_by_group` does NOT return `earn_factor_group_id` in its response. The frontend injects it:
+**Important:** `bff_get_earn_factors_by_group` does NOT return `earn_factor_group_id`. The frontend injects it:
 ```javascript
 m[g.id] = factors.map(f => ({ ...f, earn_factor_group_id: f.earn_factor_group_id || g.id }));
 ```
@@ -249,3 +253,14 @@ No page-level save. Each entity saves independently:
 - Uses Polaris mixins: `polaris-button-primary`, `polaris-button-plain`, `polaris-input`, `polaris-select`, `polaris-radio`, `polaris-spinner`, `polaris-text-title`, `polaris-text-subtitle`, `polaris-text-description`, `polaris-separator-dot`, `polaris-card-bordered`
 - Group colors: 8-color deterministic palette hashed by group ID
 - Inter font throughout matching Figma specs
+- Factor card icons: tag (rate), lightning bolt (multiplier)
+- Condition group icon: filter/lines (descending horizontal bars)
+- Condition detail table: pink item badges, clipboard threshold icons
+
+---
+
+## Figma References
+
+- Main layout: `figma.com/design/lje20iz4W3A92HJOt1diwb/New-CRM-Polaris?node-id=1104-17765`
+- Config sidebar: `figma.com/design/lje20iz4W3A92HJOt1diwb/New-CRM-Polaris?node-id=1089-79631`
+- Condition group detail: `figma.com/design/lje20iz4W3A92HJOt1diwb/New-CRM-Polaris?node-id=1089-86487`
