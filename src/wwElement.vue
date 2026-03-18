@@ -471,30 +471,10 @@ export default {
   color: var(--p-color-text);
 }
 
-// Toast
+// Toast (Pattern 25)
 .toast {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 1000;
-  padding: var(--p-space-300) var(--p-space-400);
-  border-radius: var(--p-border-radius-200);
-  font-size: var(--p-font-size-325);
-  font-weight: var(--p-font-weight-medium);
-  box-shadow: var(--p-shadow-popover);
-  max-width: 420px;
-
-  &--success {
-    background: var(--p-color-bg-fill-success-secondary);
-    color: var(--p-color-text-success);
-    border: 1px solid var(--p-color-border-success);
-  }
-
-  &--error {
-    background: var(--p-color-bg-fill-critical-secondary);
-    color: var(--p-color-text-critical);
-    border: 1px solid var(--p-color-border-critical);
-  }
+  &--success { @include polaris-toast-success; }
+  &--error { @include polaris-toast-critical; }
 }
 
 .toast-enter-active,
@@ -720,15 +700,9 @@ export default {
   }
 }
 
-// Sidebar overlay
+// Sidebar overlay (Pattern 23)
 .sidebar-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: 500;
+  @include polaris-drawer-overlay;
 }
 
 .overlay-fade-enter-active,

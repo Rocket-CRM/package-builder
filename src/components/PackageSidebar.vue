@@ -709,28 +709,13 @@ export default {
 
 .sidebar {
   @include polaris-tokens;
+  @include polaris-drawer(560px);
   font-family: var(--p-font-family-sans);
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 560px;
-  max-width: 100vw;
-  z-index: 510;
-  display: flex;
-  flex-direction: column;
-  background: var(--p-color-bg-surface);
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
 }
 
-// Header
+// Header (Pattern 23)
 .sidebar__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--p-space-300) var(--p-space-400);
-  border-bottom: 1px solid var(--p-color-border);
-  flex-shrink: 0;
+  @include polaris-drawer-header;
 }
 
 .sidebar__header-left {
@@ -750,25 +735,15 @@ export default {
   @include polaris-badge-warning;
 }
 
-// Content
+// Content (Pattern 23)
 .sidebar__content {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--p-space-400);
-  background: var(--p-color-bg-surface-secondary);
-  display: flex;
-  flex-direction: column;
-  gap: var(--p-space-400);
+  @include polaris-drawer-content;
 }
 
-// Footer
+// Footer (Pattern 23)
 .sidebar__footer {
-  display: flex;
-  align-items: center;
+  @include polaris-drawer-footer;
   justify-content: space-between;
-  padding: var(--p-space-300) var(--p-space-400);
-  border-top: 1px solid var(--p-color-border);
-  flex-shrink: 0;
 }
 
 .sidebar__footer-right {
@@ -1183,39 +1158,14 @@ export default {
 }
 
 .btn-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  border-radius: var(--p-border-radius-100);
-  color: var(--p-color-icon);
-  cursor: pointer;
-  transition: all var(--p-motion-duration-100) var(--p-motion-ease);
-  flex-shrink: 0;
-
-  &:hover:not(:disabled) {
-    background: var(--p-color-bg-fill-transparent-hover);
-    color: var(--p-color-icon-hover);
-  }
-
-  &:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
+  @include polaris-button-icon;
 
   &--sm {
-    width: 28px;
-    height: 28px;
+    @include polaris-button-icon-small;
   }
 
   &--danger {
-    &:hover:not(:disabled) {
-      color: var(--p-color-icon-critical);
-      background: var(--p-color-bg-fill-critical-secondary);
-    }
+    @include polaris-button-icon-danger;
   }
 }
 
