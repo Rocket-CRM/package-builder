@@ -1,115 +1,57 @@
-# Earn Studio — WeWeb Custom Element
+# Package Builder
 
-Visual mapping component for Earn Factors ↔ Earn Condition Groups, built as a WeWeb custom element using the Polaris design system.
+WeWeb custom component for managing packages — bundles of rewards with quantities, validity rules, and pricing.
 
 ## Overview
 
-This component provides a two-column layout that visualizes the relationship between:
-- **Left column**: Earn Factor Groups containing individual Earn Factors (rate/multiplier rules)
-- **Right column**: Earn Condition Groups containing qualifying criteria (entity-based conditions)
-- **Connection lines**: SVG lines linking individual Earn Factors to their assigned Earn Condition Groups
+An admin interface for creating and configuring packages. A package is a template that defines: a name, description, validity period, optional pricing, and a list of reward items with quantities and mandatory/elective configuration.
+
+### Features
+
+- **List view** — browse all packages with search, filter by status, and sort by creation date
+- **Sidebar editor** — create or edit packages with full configuration:
+  - Package details (name, description, image)
+  - Validity rules (no expiry, days from assignment, or specific date)
+  - Pricing (monetary price and/or points cost)
+  - Reward items with quantity, mandatory/elective type, elective groups, and reordering
+- **Reward picker** — search and select from available rewards to add to a package
+- **Save modes** — save as draft (inactive) or save & activate
+- **Toast notifications** — success/error feedback with item operation counts
 
 ## Development
 
-### Prerequisites
-- Node.js 18+
-- npm
-
-### Install
 ```bash
 npm install
+npm run serve --port=8080
 ```
 
-### Serve locally
-```bash
-npx weweb serve name=earn-studio type=wwobject --port=8083
-```
 Then add the custom element in the WeWeb editor developer popup.
 
-### Build for release
+## Build
+
 ```bash
-npx weweb build name=earn-studio type=wwobject
+npm run build --name=package-builder
 ```
 
-## Architecture
+## Data Source
 
-```
-src/
-├── wwElement.vue                        # Main component - layout, state, API orchestration
-├── useApi.js                            # Supabase RPC API helper
-└── components/
-    ├── EarnFactorGroupCard.vue          # Left column: collapsible group with factor rows
-    ├── EarnConditionGroupCard.vue       # Right column: collapsible group with conditions table
-    ├── EarnFactorConfig.vue             # Sidebar: add/edit earn factor
-    ├── EarnConditionGroupConfig.vue     # Sidebar: add/edit condition group + conditions
-    ├── CreateGroupModal.vue             # Modal: create new factor/condition group
-    └── ConnectPopup.vue                 # Popup: link factor to condition group
-```
+Connects directly to Supabase via RPC and REST endpoints:
 
-## Supabase API Endpoints
+| Endpoint | Purpose |
+|---|---|
+| `bff_admin_get_package_list` | List packages with counts |
+| `bff_admin_get_package_detail` | Single package with items and reward details |
+| `bff_upsert_package_with_items` | Create/update package and its items |
+| `reward_master` (REST) | Available rewards for the picker |
 
-All calls target `https://wkevmsedchftztoolkmi.supabase.co` via RPC:
+## Configuration
 
-| Function | Purpose |
-|----------|---------|
-| `bff_get_earn_factor_group_details` | Get group + factors |
-| `bff_upsert_earn_factor_group` | Create/update group with factors |
-| `bff_get_earn_factors_by_group` | List factors for a group |
-| `bff_get_earn_conditions_group` | Get condition group + conditions |
-| `bff_upsert_earn_conditions_group` | Create/update condition group |
-| `bff_get_all_earn_conditions_groups` | List all condition groups |
-| `api_get_earn_conditions_groups` | List with stats and pagination |
-| `get_all_entity_options` | Entity picker data |
-| `admin_delete_earn_factor` | Delete a factor |
-| `admin_delete_earn_factor_group` | Delete a group |
-| `admin_delete_earn_conditions_group` | Delete a condition group |
+| Property | Description |
+|---|---|
+| Supabase URL | Base URL of the Supabase project |
+| API Key | Supabase anon/public key |
+| User Access Token | JWT from authenticated user (bind from auth context) |
 
 ## Styling
 
-Built on `polaris-weweb-styles` package using Polaris design tokens, mixins, and component patterns.
-
-## Polaris Gap Tracking
-
-### Polaris Styles NPM Package — Items to Add
-
-- **What:** Sidebar config panel pattern (fixed right panel with header/body/footer)
-- **Where used:** EarnFactorConfig, EarnConditionGroupConfig
-- **Suggested addition:** `@mixin polaris-sidebar-panel`, `@mixin polaris-sidebar-panel-header/body/footer`
-
-- **What:** Connection line / mapping visualization tokens
-- **Where used:** SVG connection lines between columns
-- **Suggested addition:** `--p-color-connection-line`, `--p-color-connection-line-active`, line weight tokens
-
-- **What:** Expandable card with nested content pattern
-- **Where used:** EarnFactorGroupCard, EarnConditionGroupCard
-- **Suggested addition:** `@mixin polaris-expandable-card`, `@mixin polaris-expandable-card-header/body`
-
-- **What:** Entity tag picker with multi-select inside bordered container
-- **Where used:** EarnConditionGroupConfig entity selection
-- **Suggested addition:** `@mixin polaris-tag-input`, `@mixin polaris-tag-input-container`
-
-- **What:** Segmented toggle button group (OR/AND/EACH pattern)
-- **Where used:** Operator toggle in condition config
-- **Suggested addition:** `@mixin polaris-segmented-control-item--active` beyond existing segmented group
-
-### Polaris Component Structure Guidelines — Items to Add
-
-- **What:** Two-column mapping visualization pattern with connection lines
-- **Where used:** Main layout connecting earn factors to condition groups
-- **Suggested addition:** Document the pattern: left/right columns + SVG connection area, duplication rule for shared references
-
-- **What:** Hover-to-link interaction pattern (+ button appears on hover)
-- **Where used:** Earn factor rows showing "+" connection button on hover
-- **Suggested addition:** Document interaction: hover reveals action affordance, click opens selection popup
-
-- **What:** Sidebar config panel behavior (slide-in from right, independent save)
-- **Where used:** Factor config and condition group config panels
-- **Suggested addition:** Document panel lifecycle: open, edit, save, close; transition animation; overlay behavior
-
-- **What:** Inline data table within expandable cards
-- **Where used:** Conditions table inside expanded condition group cards
-- **Suggested addition:** Document compact table variant for card-embedded data display
-
-- **What:** Duplicate-block pattern to avoid crossing connection lines
-- **Where used:** Right column duplicates condition groups that are shared by multiple factors
-- **Suggested addition:** Document the Hookdeck-style deduplication pattern for visual clarity in mapping UIs
+Built with [polaris-weweb-styles](https://github.com/rangwan-rocket/polaris-weweb-styles) following [Polaris Component Structure Guidelines](https://github.com/Rocket-CRM/polaris-guide).
