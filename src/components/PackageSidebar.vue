@@ -314,44 +314,53 @@
           </div>
 
           <div v-else class="items-empty">
-            <p>No rewards added yet. Use the button below to add rewards to this package.</p>
+            <p>No rewards added yet. Search and select rewards below.</p>
           </div>
 
-          <!-- Add reward button / picker -->
-          <div class="reward-picker">
-            <button
-              v-if="!showRewardPicker"
-              class="btn btn--outline btn--full"
-              @click="openRewardPicker"
+          <!-- Searchable reward dropdown -->
+          <div class="reward-dropdown" ref="dropdownRef">
+            <label class="field__label field__label--sm">Add Reward</label>
+            <div
+              class="reward-dropdown__trigger"
+              :class="{ 'reward-dropdown__trigger--open': dropdownOpen }"
+              @click="openDropdown"
             >
-              + Add Reward
-            </button>
+              <svg class="reward-dropdown__search-icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M8 12a4 4 0 1 1 0-8 4 4 0 0 1 0 8m9.707 4.293-4.82-4.82A5.968 5.968 0 0 0 14 8 6 6 0 0 0 2 8a6 6 0 0 0 6 6 5.968 5.968 0 0 0 3.473-1.113l4.82 4.82a.997.997 0 0 0 1.414 0 .999.999 0 0 0 0-1.414"/>
+              </svg>
+              <input
+                ref="rewardSearchRef"
+                class="reward-dropdown__input"
+                type="text"
+                placeholder="Search rewards to add…"
+                :value="rewardSearch"
+                @input="rewardSearch = $event?.target?.value || ''"
+                @focus="openDropdown"
+              />
+              <span v-if="rewardSearch" class="reward-dropdown__clear" @click.stop="clearSearch">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M6.707 5.293a1 1 0 0 0-1.414 1.414L8.586 10l-3.293 3.293a1 1 0 1 0 1.414 1.414L10 11.414l3.293 3.293a1 1 0 0 0 1.414-1.414L11.414 10l3.293-3.293a1 1 0 0 0-1.414-1.414L10 8.586 6.707 5.293z"/>
+                </svg>
+              </span>
+              <span v-if="!loadingRewards && availableRewardCount > 0" class="reward-dropdown__count">
+                {{ availableRewardCount }}
+              </span>
+            </div>
 
-            <div v-if="showRewardPicker" class="reward-picker__panel">
-              <div class="reward-picker__search">
-                <input
-                  ref="rewardSearchRef"
-                  class="search-field"
-                  type="text"
-                  placeholder="Search rewards…"
-                  :value="rewardSearch"
-                  @input="rewardSearch = $event?.target?.value || ''"
-                />
-                <button class="btn-icon btn-icon--sm" @click="showRewardPicker = false">
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M6.707 5.293a1 1 0 0 0-1.414 1.414L8.586 10l-3.293 3.293a1 1 0 1 0 1.414 1.414L10 11.414l3.293 3.293a1 1 0 0 0 1.414-1.414L11.414 10l3.293-3.293a1 1 0 0 0-1.414-1.414L10 8.586 6.707 5.293z"/>
-                  </svg>
-                </button>
-              </div>
-
-              <div v-if="loadingRewards" class="reward-picker__loading">
+            <div v-if="dropdownOpen" class="reward-dropdown__menu">
+              <div v-if="loadingRewards" class="reward-dropdown__loading">
                 <span class="spinner-sm"></span>
+                <span>Loading rewards…</span>
               </div>
-              <div v-else class="reward-picker__list">
+              <template v-else>
+                <div v-if="!filteredRewards?.length" class="reward-dropdown__empty">
+                  {{ availableRewardCount === 0 ? 'No rewards available. Check your access token.' : 'No rewards match your search.' }}
+                </div>
                 <div
                   v-for="reward in filteredRewards"
                   :key="reward?.id"
                   class="reward-option"
+                  :class="{ 'reward-option--added': isRewardAdded(reward?.id) }"
                   @click="addReward(reward)"
                 >
                   <img
@@ -360,18 +369,23 @@
                     class="reward-option__thumb"
                     alt=""
                   />
+                  <div v-else class="reward-option__thumb reward-option__thumb--placeholder">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" opacity="0.4">
+                      <path d="M2 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4zm2 0v8l3-3 2 2 4-4 3 3V4H4z"/>
+                    </svg>
+                  </div>
                   <div class="reward-option__text">
                     <span class="reward-option__name">{{ reward?.name || 'Untitled' }}</span>
                     <span v-if="reward?.description_headline" class="reward-option__desc">
                       {{ reward.description_headline }}
                     </span>
                   </div>
-                  <span v-if="isRewardAdded(reward?.id)" class="reward-option__added">Added</span>
+                  <span v-if="isRewardAdded(reward?.id)" class="reward-option__badge">Added</span>
+                  <svg v-else class="reward-option__add-icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1z"/>
+                  </svg>
                 </div>
-                <div v-if="!filteredRewards?.length" class="reward-picker__empty">
-                  No rewards found
-                </div>
-              </div>
+              </template>
             </div>
           </div>
         </div>
@@ -394,7 +408,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, watch, nextTick } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
 export default {
   props: {
@@ -425,9 +439,10 @@ export default {
     })
 
     const validationErrors = ref([])
-    const showRewardPicker = ref(false)
+    const dropdownOpen = ref(false)
     const rewardSearch = ref('')
     const rewardSearchRef = ref(null)
+    const dropdownRef = ref(null)
     const initialSnapshot = ref('')
 
     function populateForm(data) {
@@ -547,16 +562,18 @@ export default {
       form.items.splice(idx, 1)
     }
 
-    // Reward picker
+    // Reward dropdown
+    const availableRewardCount = computed(() => (props.availableRewards || []).length)
+
     const filteredRewards = computed(() => {
       const q = rewardSearch.value?.toLowerCase()?.trim()
       const rewards = props.availableRewards || []
-      if (!q) return rewards
+      if (!q) return rewards.slice(0, 50)
       return rewards.filter(
         r =>
           r?.name?.toLowerCase()?.includes(q) ||
           r?.description_headline?.toLowerCase()?.includes(q)
-      )
+      ).slice(0, 50)
     })
 
     function isRewardAdded(rewardId) {
@@ -565,7 +582,7 @@ export default {
     }
 
     function addReward(reward) {
-      if (!reward?.id) return
+      if (!reward?.id || isRewardAdded(reward.id)) return
       form.items.push({
         _key: genKey(),
         id: null,
@@ -579,18 +596,40 @@ export default {
         elective_max_picks: null,
         ranking: form.items.length,
       })
-      showRewardPicker.value = false
       rewardSearch.value = ''
+      dropdownOpen.value = false
     }
 
-    function openRewardPicker() {
-      showRewardPicker.value = true
-      rewardSearch.value = ''
+    function openDropdown() {
+      dropdownOpen.value = true
       emit('search-rewards')
       nextTick(() => {
         rewardSearchRef.value?.focus?.()
       })
     }
+
+    function clearSearch() {
+      rewardSearch.value = ''
+      nextTick(() => {
+        rewardSearchRef.value?.focus?.()
+      })
+    }
+
+    function handleClickOutside(e) {
+      if (dropdownRef.value && !dropdownRef.value.contains?.(e?.target)) {
+        dropdownOpen.value = false
+      }
+    }
+
+    onMounted(() => {
+      const doc = typeof wwLib !== 'undefined' ? wwLib.getFrontDocument?.() : document
+      doc?.addEventListener?.('click', handleClickOutside, true)
+    })
+
+    onBeforeUnmount(() => {
+      const doc = typeof wwLib !== 'undefined' ? wwLib.getFrontDocument?.() : document
+      doc?.removeEventListener?.('click', handleClickOutside, true)
+    })
 
     // Validation
     function validate() {
@@ -684,16 +723,19 @@ export default {
       validationErrors,
       isDirty,
       nameError,
-      showRewardPicker,
+      dropdownOpen,
+      dropdownRef,
       rewardSearch,
       rewardSearchRef,
+      availableRewardCount,
       filteredRewards,
       setItemType,
       moveItem,
       removeItem,
       isRewardAdded,
       addReward,
-      openRewardPicker,
+      openDropdown,
+      clearSearch,
       saveDraft,
       saveActivate,
       parseIntSafe,
@@ -1044,51 +1086,111 @@ export default {
   p { margin: 0; }
 }
 
-// Reward picker
-.reward-picker {
+// Reward searchable dropdown
+.reward-dropdown {
   margin-top: var(--p-space-200);
-}
+  position: relative;
 
-.reward-picker__panel {
-  border: 1px solid var(--p-color-border);
-  border-radius: var(--p-border-radius-200);
-  overflow: hidden;
-}
+  &__trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--p-space-100);
+    padding: 0 var(--p-space-200);
+    border: 1px solid var(--p-color-border);
+    border-radius: var(--p-border-radius-200);
+    background: var(--p-color-bg-surface);
+    min-height: 36px;
+    cursor: text;
+    transition: border-color var(--p-motion-duration-150) var(--p-motion-ease),
+                box-shadow var(--p-motion-duration-150) var(--p-motion-ease);
 
-.reward-picker__search {
-  display: flex;
-  gap: var(--p-space-200);
-  padding: var(--p-space-200);
-  border-bottom: 1px solid var(--p-color-border);
-  background: var(--p-color-bg-surface-secondary);
+    &:hover { border-color: var(--p-color-border-hover); }
 
-  .search-field {
-    @include polaris-search-field;
-    flex: 1;
+    &--open {
+      border-color: var(--p-color-focus-ring);
+      box-shadow: 0 0 0 1px var(--p-color-focus-ring);
+    }
   }
-}
 
-.reward-picker__loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--p-space-600);
+  &__search-icon {
+    flex-shrink: 0;
+    color: var(--p-color-icon);
+  }
+
+  &__input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: var(--p-font-family-sans);
+    font-size: var(--p-font-size-350);
+    color: var(--p-color-text);
+    padding: var(--p-space-200) 0;
+    min-width: 0;
+
+    &::placeholder {
+      color: var(--p-color-text-secondary);
+    }
+  }
+
+  &__clear {
+    flex-shrink: 0;
+    cursor: pointer;
+    color: var(--p-color-icon);
+    display: flex;
+    align-items: center;
+    padding: var(--p-space-050);
+    border-radius: var(--p-border-radius-100);
+
+    &:hover {
+      color: var(--p-color-icon-hover);
+      background: var(--p-color-bg-fill-transparent-hover);
+    }
+  }
+
+  &__count {
+    flex-shrink: 0;
+    font-size: var(--p-font-size-275);
+    color: var(--p-color-text-secondary);
+    background: var(--p-color-bg-fill);
+    padding: 1px 6px;
+    border-radius: var(--p-border-radius-full);
+  }
+
+  &__menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: var(--p-color-bg-surface);
+    border: 1px solid var(--p-color-border);
+    border-radius: var(--p-border-radius-200);
+    box-shadow: var(--p-shadow-popover);
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--p-space-200);
+    padding: var(--p-space-500);
+    color: var(--p-color-text-secondary);
+    font-size: var(--p-font-size-325);
+  }
+
+  &__empty {
+    padding: var(--p-space-400);
+    text-align: center;
+    color: var(--p-color-text-secondary);
+    font-size: var(--p-font-size-325);
+  }
 }
 
 .spinner-sm {
   @include polaris-spinner;
-}
-
-.reward-picker__list {
-  max-height: 280px;
-  overflow-y: auto;
-}
-
-.reward-picker__empty {
-  padding: var(--p-space-400);
-  text-align: center;
-  color: var(--p-color-text-secondary);
-  font-size: var(--p-font-size-325);
 }
 
 .reward-option {
@@ -1103,13 +1205,26 @@ export default {
   &:last-child { border-bottom: none; }
   &:hover { background: var(--p-color-bg-surface-hover); }
 
+  &--added {
+    opacity: 0.5;
+    cursor: default;
+    &:hover { background: transparent; }
+  }
+
   &__thumb {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--p-border-radius-100);
     object-fit: cover;
     flex-shrink: 0;
     border: 1px solid var(--p-color-border);
+
+    &--placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--p-color-bg-fill);
+    }
   }
 
   &__text {
@@ -1134,9 +1249,20 @@ export default {
     white-space: nowrap;
   }
 
-  &__added {
+  &__badge {
     @include polaris-badge-info;
     flex-shrink: 0;
+  }
+
+  &__add-icon {
+    flex-shrink: 0;
+    color: var(--p-color-icon);
+    opacity: 0;
+    transition: opacity var(--p-motion-duration-100) var(--p-motion-ease);
+  }
+
+  &:hover &__add-icon {
+    opacity: 1;
   }
 }
 

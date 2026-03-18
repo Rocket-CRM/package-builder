@@ -263,23 +263,29 @@ export default {
       }
     }
 
-    async function fetchRewards() {
-      if (availableRewards.value?.length) return
+    let rewardsFetched = false
+    async function fetchRewards(force = false) {
+      if (rewardsFetched && !force && availableRewards.value?.length) return
       loadingRewards.value = true
       try {
         const data = await api.restGet(
-          'reward_master?select=id,name,image,description_headline&active_status=eq.true&order=name.asc'
+          'reward_master?select=id,name,image,description_headline,active_status&active_status=eq.true&order=name.asc&limit=500'
         )
         availableRewards.value = Array.isArray(data) ? data : []
+        rewardsFetched = true
       } catch (err) {
-        showToast('Failed to load rewards', 'error')
+        showToast(`Failed to load rewards: ${err?.message || 'Unknown error'}`, 'error')
+        emit('trigger-event', {
+          name: 'error',
+          event: { message: `Reward fetch failed: ${err?.message}` },
+        })
       } finally {
         loadingRewards.value = false
       }
     }
 
     function handleSearchRewards() {
-      fetchRewards()
+      fetchRewards(true)
     }
 
     // Sidebar controls
