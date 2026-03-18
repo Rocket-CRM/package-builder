@@ -748,6 +748,7 @@ export default {
 
 <style lang="scss" scoped>
 @import 'polaris-weweb-styles';
+@import '../local-mixins';
 
 .sidebar {
   @include polaris-tokens;
