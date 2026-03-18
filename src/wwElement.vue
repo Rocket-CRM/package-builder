@@ -467,7 +467,6 @@ export default {
 
 <style lang="scss" scoped>
 @import 'polaris-weweb-styles';
-@import './local-mixins';
 
 .package-builder {
   @include polaris-tokens;
