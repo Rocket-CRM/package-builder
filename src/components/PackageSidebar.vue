@@ -20,376 +20,384 @@
 
     <!-- Content -->
     <div class="sidebar__content">
-      <!-- Validation errors -->
-      <div v-if="validationErrors?.length" class="banner banner--critical">
-        <div class="banner__content">
-          <strong>Please fix the following errors</strong>
-          <ul class="error-list">
-            <li v-for="(err, idx) in validationErrors" :key="idx">{{ err }}</li>
-          </ul>
-        </div>
-        <button class="btn-icon btn-icon--sm" @click="validationErrors = []">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M6.707 5.293a1 1 0 0 0-1.414 1.414L8.586 10l-3.293 3.293a1 1 0 1 0 1.414 1.414L10 11.414l3.293 3.293a1 1 0 0 0 1.414-1.414L11.414 10l3.293-3.293a1 1 0 0 0-1.414-1.414L10 8.586 6.707 5.293z"/>
-          </svg>
-        </button>
+      <!-- Loading state for edit mode -->
+      <div v-if="loading && !isNew" class="sidebar-loading">
+        <span class="spinner-lg"></span>
+        <span class="sidebar-loading__text">Loading package…</span>
       </div>
 
-      <!-- Package Details Card -->
-      <div class="card">
-        <div class="card__header">
-          <h3 class="card__title">Package Details</h3>
-          <p class="card__desc">Basic information about this package</p>
+      <template v-else>
+        <!-- Validation errors -->
+        <div v-if="validationErrors?.length" class="banner banner--critical">
+          <div class="banner__content">
+            <strong>Please fix the following errors</strong>
+            <ul class="error-list">
+              <li v-for="(err, idx) in validationErrors" :key="idx">{{ err }}</li>
+            </ul>
+          </div>
+          <button class="btn-icon btn-icon--sm" @click="validationErrors = []">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M6.707 5.293a1 1 0 0 0-1.414 1.414L8.586 10l-3.293 3.293a1 1 0 1 0 1.414 1.414L10 11.414l3.293 3.293a1 1 0 0 0 1.414-1.414L11.414 10l3.293-3.293a1 1 0 0 0-1.414-1.414L10 8.586 6.707 5.293z"/>
+            </svg>
+          </button>
         </div>
-        <div class="card__section">
-          <div class="form-stack">
-            <div class="field">
-              <label class="field__label">
-                Name <span class="field__required">*</span>
-              </label>
-              <input
-                class="field__input"
-                type="text"
-                placeholder="e.g. Welcome Package"
-                :value="form.name"
-                @input="form.name = $event?.target?.value || ''"
-                :class="{ 'field__input--error': nameError }"
-              />
-              <span v-if="nameError" class="field__error">{{ nameError }}</span>
-            </div>
 
-            <div class="field">
-              <label class="field__label">Description</label>
-              <textarea
-                class="field__textarea"
-                placeholder="Describe what this package includes…"
-                :value="form.description"
-                @input="form.description = $event?.target?.value || ''"
-                rows="3"
-              ></textarea>
-            </div>
+        <!-- Package Details Card -->
+        <div class="card">
+          <div class="card__header">
+            <h3 class="card__title">Package Details</h3>
+            <p class="card__desc">Basic information about this package</p>
+          </div>
+          <div class="card__section">
+            <div class="form-stack">
+              <div class="field">
+                <label class="field__label">
+                  Name <span class="field__required">*</span>
+                </label>
+                <input
+                  class="field__input"
+                  type="text"
+                  placeholder="e.g. Welcome Package"
+                  :value="form.name"
+                  @input="form.name = $event?.target?.value || ''"
+                  :class="{ 'field__input--error': nameError }"
+                />
+                <span v-if="nameError" class="field__error">{{ nameError }}</span>
+              </div>
 
-            <div class="field">
-              <label class="field__label">Image URL</label>
-              <input
-                class="field__input"
-                type="text"
-                placeholder="https://example.com/image.jpg"
-                :value="form.imageUrl"
-                @input="form.imageUrl = $event?.target?.value || ''"
-              />
-              <div v-if="form.imageUrl" class="image-preview">
-                <img :src="form.imageUrl" alt="Preview" @error="onImageError" />
+              <div class="field">
+                <label class="field__label">Description</label>
+                <textarea
+                  class="field__textarea"
+                  placeholder="Describe what this package includes…"
+                  :value="form.description"
+                  @input="form.description = $event?.target?.value || ''"
+                  rows="3"
+                ></textarea>
+              </div>
+
+              <div class="field">
+                <label class="field__label">Image URL</label>
+                <input
+                  class="field__input"
+                  type="text"
+                  placeholder="https://example.com/image.jpg"
+                  :value="form.imageUrl"
+                  @input="form.imageUrl = $event?.target?.value || ''"
+                />
+                <div v-if="form.imageUrl" class="image-preview">
+                  <img :src="form.imageUrl" alt="Preview" @error="onImageError" />
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Validity & Pricing Card -->
-      <div class="card">
-        <div class="card__header">
-          <h3 class="card__title">Validity & Pricing</h3>
-          <p class="card__desc">Set expiry rules and optional pricing</p>
-        </div>
-        <div class="card__section">
-          <div class="form-stack">
-            <!-- Validity mode -->
-            <div class="field">
-              <label class="field__label">Validity</label>
-              <div class="radio-cards">
-                <label
-                  class="radio-card"
-                  :class="{ 'radio-card--active': form.validityMode === 'none' }"
-                >
-                  <input
-                    type="radio"
-                    value="none"
-                    :checked="form.validityMode === 'none'"
-                    @change="form.validityMode = 'none'"
-                  />
-                  <div>
-                    <span class="radio-card__title">No expiry</span>
-                    <span class="radio-card__desc">Never expires</span>
-                  </div>
-                </label>
-                <label
-                  class="radio-card"
-                  :class="{ 'radio-card--active': form.validityMode === 'days' }"
-                >
-                  <input
-                    type="radio"
-                    value="days"
-                    :checked="form.validityMode === 'days'"
-                    @change="form.validityMode = 'days'"
-                  />
-                  <div>
-                    <span class="radio-card__title">Days from assignment</span>
-                    <span class="radio-card__desc">Valid for N days after assigned</span>
-                  </div>
-                </label>
-                <label
-                  class="radio-card"
-                  :class="{ 'radio-card--active': form.validityMode === 'date' }"
-                >
-                  <input
-                    type="radio"
-                    value="date"
-                    :checked="form.validityMode === 'date'"
-                    @change="form.validityMode = 'date'"
-                  />
-                  <div>
-                    <span class="radio-card__title">Specific date</span>
-                    <span class="radio-card__desc">Valid until a fixed date</span>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div v-if="form.validityMode === 'days'" class="field">
-              <label class="field__label">Number of days</label>
-              <input
-                class="field__input field__input--narrow"
-                type="number"
-                min="1"
-                :value="form.validityDays"
-                @input="form.validityDays = parseIntSafe($event?.target?.value)"
-              />
-            </div>
-
-            <div v-if="form.validityMode === 'date'" class="field">
-              <label class="field__label">Expiry date</label>
-              <input
-                class="field__date"
-                type="date"
-                :value="form.validityDate"
-                @input="form.validityDate = $event?.target?.value || ''"
-              />
-            </div>
-
-            <div class="field-row">
-              <div class="field field--half">
-                <label class="field__label">Price</label>
-                <input
-                  class="field__input"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Leave empty if free"
-                  :value="form.price"
-                  @input="form.price = parseFloatSafe($event?.target?.value)"
-                />
-                <span class="field__help">Monetary price for purchasable packages</span>
-              </div>
-              <div class="field field--half">
-                <label class="field__label">Points Price</label>
-                <input
-                  class="field__input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="Leave empty if no points cost"
-                  :value="form.pointsPrice"
-                  @input="form.pointsPrice = parseFloatSafe($event?.target?.value)"
-                />
-                <span class="field__help">Points cost for this package</span>
-              </div>
-            </div>
+        <!-- Validity & Pricing Card -->
+        <div class="card">
+          <div class="card__header">
+            <h3 class="card__title">Validity & Pricing</h3>
+            <p class="card__desc">Set expiry rules and optional pricing</p>
           </div>
-        </div>
-      </div>
-
-      <!-- Package Items Card -->
-      <div class="card">
-        <div class="card__header">
-          <h3 class="card__title">Package Items</h3>
-          <p class="card__desc">Rewards included in this package with quantities</p>
-        </div>
-        <div class="card__section">
-          <!-- Items list -->
-          <div v-if="form.items?.length" class="items-list">
-            <div
-              v-for="(item, idx) in form.items"
-              :key="item._key"
-              class="item-row"
-            >
-              <div class="item-row__header">
-                <div class="item-row__info">
-                  <img
-                    v-if="item.reward_image?.length"
-                    :src="item.reward_image[0]"
-                    class="item-row__thumb"
-                    alt=""
-                  />
-                  <div class="item-row__text">
-                    <span class="item-row__name">{{ item.reward_name || 'Unknown Reward' }}</span>
-                    <span class="item-row__id">{{ item.reward_id?.substring(0, 8) }}…</span>
-                  </div>
-                </div>
-                <div class="item-row__actions">
-                  <button
-                    class="btn-icon btn-icon--sm"
-                    :disabled="idx === 0"
-                    @click="moveItem(idx, -1)"
-                    title="Move up"
+          <div class="card__section">
+            <div class="form-stack">
+              <!-- Validity mode -->
+              <div class="field">
+                <label class="field__label">Validity</label>
+                <div class="radio-cards">
+                  <label
+                    class="radio-card"
+                    :class="{ 'radio-card--active': form.validityMode === 'none' }"
                   >
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10 6a.997.997 0 0 0-.707.293l-5 5a.999.999 0 1 0 1.414 1.414L10 8.414l4.293 4.293a.999.999 0 1 0 1.414-1.414l-5-5A.997.997 0 0 0 10 6z"/>
-                    </svg>
-                  </button>
-                  <button
-                    class="btn-icon btn-icon--sm"
-                    :disabled="idx === form.items.length - 1"
-                    @click="moveItem(idx, 1)"
-                    title="Move down"
+                    <input
+                      type="radio"
+                      value="none"
+                      :checked="form.validityMode === 'none'"
+                      @change="form.validityMode = 'none'"
+                    />
+                    <div>
+                      <span class="radio-card__title">No expiry</span>
+                      <span class="radio-card__desc">Never expires</span>
+                    </div>
+                  </label>
+                  <label
+                    class="radio-card"
+                    :class="{ 'radio-card--active': form.validityMode === 'days' }"
                   >
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10 14a.997.997 0 0 1-.707-.293l-5-5a.999.999 0 1 1 1.414-1.414L10 11.586l4.293-4.293a.999.999 0 1 1 1.414 1.414l-5 5A.997.997 0 0 1 10 14z"/>
-                    </svg>
-                  </button>
-                  <button
-                    class="btn-icon btn-icon--sm btn-icon--danger"
-                    @click="removeItem(idx)"
-                    title="Remove"
+                    <input
+                      type="radio"
+                      value="days"
+                      :checked="form.validityMode === 'days'"
+                      @change="form.validityMode = 'days'"
+                    />
+                    <div>
+                      <span class="radio-card__title">Days from assignment</span>
+                      <span class="radio-card__desc">Valid for N days after assigned</span>
+                    </div>
+                  </label>
+                  <label
+                    class="radio-card"
+                    :class="{ 'radio-card--active': form.validityMode === 'date' }"
                   >
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M6.707 5.293a1 1 0 0 0-1.414 1.414L8.586 10l-3.293 3.293a1 1 0 1 0 1.414 1.414L10 11.414l3.293 3.293a1 1 0 0 0 1.414-1.414L11.414 10l3.293-3.293a1 1 0 0 0-1.414-1.414L10 8.586 6.707 5.293z"/>
-                    </svg>
-                  </button>
+                    <input
+                      type="radio"
+                      value="date"
+                      :checked="form.validityMode === 'date'"
+                      @change="form.validityMode = 'date'"
+                    />
+                    <div>
+                      <span class="radio-card__title">Specific date</span>
+                      <span class="radio-card__desc">Valid until a fixed date</span>
+                    </div>
+                  </label>
                 </div>
               </div>
 
-              <div class="item-row__config">
-                <div class="field field--compact">
-                  <label class="field__label field__label--sm">Quantity</label>
-                  <input
-                    class="field__input field__input--narrow"
-                    type="number"
-                    min="1"
-                    :value="item.qty"
-                    @input="item.qty = parseIntSafe($event?.target?.value) || 1"
-                  />
-                </div>
-
-                <div class="field field--compact">
-                  <label class="field__label field__label--sm">Type</label>
-                  <div class="segmented-pill">
-                    <button
-                      class="segmented-pill__btn"
-                      :class="{ 'segmented-pill__btn--active': !item.is_elective }"
-                      @click="setItemType(idx, 'mandatory')"
-                    >Mandatory</button>
-                    <button
-                      class="segmented-pill__btn"
-                      :class="{ 'segmented-pill__btn--active': item.is_elective }"
-                      @click="setItemType(idx, 'elective')"
-                    >Elective</button>
-                  </div>
-                </div>
+              <div v-if="form.validityMode === 'days'" class="field">
+                <label class="field__label">Number of days</label>
+                <input
+                  class="field__input field__input--narrow"
+                  type="number"
+                  min="1"
+                  :value="form.validityDays"
+                  @input="form.validityDays = parseIntSafe($event?.target?.value)"
+                />
               </div>
 
-              <div v-if="item.is_elective" class="item-row__elective">
-                <div class="field field--compact">
-                  <label class="field__label field__label--sm">Elective group</label>
+              <div v-if="form.validityMode === 'date'" class="field">
+                <label class="field__label">Expiry date</label>
+                <input
+                  class="field__date"
+                  type="date"
+                  :value="form.validityDate"
+                  @input="form.validityDate = $event?.target?.value || ''"
+                />
+              </div>
+
+              <div class="field-row">
+                <div class="field field--half">
+                  <label class="field__label">Price</label>
                   <input
                     class="field__input"
-                    type="text"
-                    placeholder="e.g. wellness-choices"
-                    :value="item.elective_group"
-                    @input="item.elective_group = $event?.target?.value || ''"
-                  />
-                </div>
-                <div class="field field--compact">
-                  <label class="field__label field__label--sm">Max picks</label>
-                  <input
-                    class="field__input field__input--narrow"
                     type="number"
-                    min="1"
-                    :value="item.elective_max_picks"
-                    @input="item.elective_max_picks = parseIntSafe($event?.target?.value)"
+                    min="0"
+                    step="0.01"
+                    placeholder="Leave empty if free"
+                    :value="form.price"
+                    @input="form.price = parseFloatSafe($event?.target?.value)"
                   />
+                  <span class="field__help">Monetary price for purchasable packages</span>
+                </div>
+                <div class="field field--half">
+                  <label class="field__label">Points Price</label>
+                  <input
+                    class="field__input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Leave empty if no points cost"
+                    :value="form.pointsPrice"
+                    @input="form.pointsPrice = parseFloatSafe($event?.target?.value)"
+                  />
+                  <span class="field__help">Points cost for this package</span>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div v-else class="items-empty">
-            <p>No rewards added yet. Search and select rewards below.</p>
-          </div>
-
-          <!-- Searchable reward dropdown -->
-          <div class="reward-dropdown" ref="dropdownRef">
-            <label class="field__label field__label--sm">Add Reward</label>
-            <div
-              class="reward-dropdown__trigger"
-              :class="{ 'reward-dropdown__trigger--open': dropdownOpen }"
-              @click="openDropdown"
-            >
-              <svg class="reward-dropdown__search-icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M8 12a4 4 0 1 1 0-8 4 4 0 0 1 0 8m9.707 4.293-4.82-4.82A5.968 5.968 0 0 0 14 8 6 6 0 0 0 2 8a6 6 0 0 0 6 6 5.968 5.968 0 0 0 3.473-1.113l4.82 4.82a.997.997 0 0 0 1.414 0 .999.999 0 0 0 0-1.414"/>
-              </svg>
-              <input
-                ref="rewardSearchRef"
-                class="reward-dropdown__input"
-                type="text"
-                placeholder="Search rewards to add…"
-                :value="rewardSearch"
-                @input="rewardSearch = $event?.target?.value || ''"
-                @focus="openDropdown"
-              />
-              <span v-if="rewardSearch" class="reward-dropdown__clear" @click.stop="clearSearch">
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M6.707 5.293a1 1 0 0 0-1.414 1.414L8.586 10l-3.293 3.293a1 1 0 1 0 1.414 1.414L10 11.414l3.293 3.293a1 1 0 0 0 1.414-1.414L11.414 10l3.293-3.293a1 1 0 0 0-1.414-1.414L10 8.586 6.707 5.293z"/>
-                </svg>
-              </span>
-              <span v-if="!loadingRewards && availableRewardCount > 0" class="reward-dropdown__count">
-                {{ availableRewardCount }}
-              </span>
-            </div>
-
-            <div v-if="dropdownOpen" class="reward-dropdown__menu">
-              <div v-if="loadingRewards" class="reward-dropdown__loading">
-                <span class="spinner-sm"></span>
-                <span>Loading rewards…</span>
-              </div>
-              <template v-else>
-                <div v-if="!filteredRewards?.length" class="reward-dropdown__empty">
-                  {{ availableRewardCount === 0 ? 'No rewards available. Check your access token.' : 'No rewards match your search.' }}
-                </div>
-                <div
-                  v-for="reward in filteredRewards"
-                  :key="reward?.id"
-                  class="reward-option"
-                  :class="{ 'reward-option--added': isRewardAdded(reward?.id) }"
-                  @click="addReward(reward)"
-                >
-                  <img
-                    v-if="reward?.image?.length"
-                    :src="reward.image[0]"
-                    class="reward-option__thumb"
-                    alt=""
-                  />
-                  <div v-else class="reward-option__thumb reward-option__thumb--placeholder">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" opacity="0.4">
-                      <path d="M2 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4zm2 0v8l3-3 2 2 4-4 3 3V4H4z"/>
-                    </svg>
-                  </div>
-                  <div class="reward-option__text">
-                    <span class="reward-option__name">{{ reward?.name || 'Untitled' }}</span>
-                    <span v-if="reward?.description_headline" class="reward-option__desc">
-                      {{ reward.description_headline }}
-                    </span>
-                  </div>
-                  <span v-if="isRewardAdded(reward?.id)" class="reward-option__badge">Added</span>
-                  <svg v-else class="reward-option__add-icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1z"/>
-                  </svg>
-                </div>
-              </template>
             </div>
           </div>
         </div>
-      </div>
+
+        <!-- Package Items Card -->
+        <div class="card">
+          <div class="card__header">
+            <h3 class="card__title">Package Items</h3>
+            <p class="card__desc">Rewards included in this package with quantities</p>
+          </div>
+          <div class="card__section">
+            <!-- Items list -->
+            <div v-if="form.items?.length" class="items-list">
+              <div
+                v-for="(item, idx) in form.items"
+                :key="item._key"
+                class="item-row"
+              >
+                <div class="item-row__header">
+                  <div class="item-row__info">
+                    <img
+                      v-if="item.reward_image?.length"
+                      :src="item.reward_image[0]"
+                      class="item-row__thumb"
+                      alt=""
+                    />
+                    <div class="item-row__text">
+                      <span class="item-row__name">{{ item.reward_name || 'Unknown Reward' }}</span>
+                      <span class="item-row__id">{{ item.reward_id?.substring(0, 8) }}…</span>
+                    </div>
+                  </div>
+                  <div class="item-row__actions">
+                    <button
+                      class="btn-icon btn-icon--sm"
+                      :disabled="idx === 0"
+                      @click="moveItem(idx, -1)"
+                      title="Move up"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 6a.997.997 0 0 0-.707.293l-5 5a.999.999 0 1 0 1.414 1.414L10 8.414l4.293 4.293a.999.999 0 1 0 1.414-1.414l-5-5A.997.997 0 0 0 10 6z"/>
+                      </svg>
+                    </button>
+                    <button
+                      class="btn-icon btn-icon--sm"
+                      :disabled="idx === form.items.length - 1"
+                      @click="moveItem(idx, 1)"
+                      title="Move down"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 14a.997.997 0 0 1-.707-.293l-5-5a.999.999 0 1 1 1.414-1.414L10 11.586l4.293-4.293a.999.999 0 1 1 1.414 1.414l-5 5A.997.997 0 0 1 10 14z"/>
+                      </svg>
+                    </button>
+                    <button
+                      class="btn-icon btn-icon--sm btn-icon--danger"
+                      @click="removeItem(idx)"
+                      title="Remove"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M6.707 5.293a1 1 0 0 0-1.414 1.414L8.586 10l-3.293 3.293a1 1 0 1 0 1.414 1.414L10 11.414l3.293 3.293a1 1 0 0 0 1.414-1.414L11.414 10l3.293-3.293a1 1 0 0 0-1.414-1.414L10 8.586 6.707 5.293z"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="item-row__config">
+                  <div class="field field--compact">
+                    <label class="field__label field__label--sm">Quantity</label>
+                    <input
+                      class="field__input field__input--narrow"
+                      type="number"
+                      min="1"
+                      :value="item.qty"
+                      @input="item.qty = parseIntSafe($event?.target?.value) || 1"
+                    />
+                  </div>
+
+                  <div class="field field--compact">
+                    <label class="field__label field__label--sm">Type</label>
+                    <div class="segmented-pill">
+                      <button
+                        class="segmented-pill__btn"
+                        :class="{ 'segmented-pill__btn--active': !item.is_elective }"
+                        @click="setItemType(idx, 'mandatory')"
+                      >Mandatory</button>
+                      <button
+                        class="segmented-pill__btn"
+                        :class="{ 'segmented-pill__btn--active': item.is_elective }"
+                        @click="setItemType(idx, 'elective')"
+                      >Elective</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="item.is_elective" class="item-row__elective">
+                  <div class="field field--compact">
+                    <label class="field__label field__label--sm">Elective group</label>
+                    <input
+                      class="field__input"
+                      type="text"
+                      placeholder="e.g. wellness-choices"
+                      :value="item.elective_group"
+                      @input="item.elective_group = $event?.target?.value || ''"
+                    />
+                  </div>
+                  <div class="field field--compact">
+                    <label class="field__label field__label--sm">Max picks</label>
+                    <input
+                      class="field__input field__input--narrow"
+                      type="number"
+                      min="1"
+                      :value="item.elective_max_picks"
+                      @input="item.elective_max_picks = parseIntSafe($event?.target?.value)"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="items-empty">
+              <p>No rewards added yet. Search and select rewards below.</p>
+            </div>
+
+            <!-- Searchable reward dropdown -->
+            <div class="reward-dropdown" ref="dropdownRef">
+              <label class="field__label field__label--sm">Add Reward</label>
+              <div
+                class="reward-dropdown__trigger"
+                :class="{ 'reward-dropdown__trigger--open': dropdownOpen }"
+                @click="openDropdown"
+              >
+                <svg class="reward-dropdown__search-icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M8 12a4 4 0 1 1 0-8 4 4 0 0 1 0 8m9.707 4.293-4.82-4.82A5.968 5.968 0 0 0 14 8 6 6 0 0 0 2 8a6 6 0 0 0 6 6 5.968 5.968 0 0 0 3.473-1.113l4.82 4.82a.997.997 0 0 0 1.414 0 .999.999 0 0 0 0-1.414"/>
+                </svg>
+                <input
+                  ref="rewardSearchRef"
+                  class="reward-dropdown__input"
+                  type="text"
+                  placeholder="Search rewards to add…"
+                  :value="rewardSearch"
+                  @input="rewardSearch = $event?.target?.value || ''"
+                  @focus="openDropdown"
+                />
+                <span v-if="rewardSearch" class="reward-dropdown__clear" @click.stop="clearSearch">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M6.707 5.293a1 1 0 0 0-1.414 1.414L8.586 10l-3.293 3.293a1 1 0 1 0 1.414 1.414L10 11.414l3.293 3.293a1 1 0 0 0 1.414-1.414L11.414 10l3.293-3.293a1 1 0 0 0-1.414-1.414L10 8.586 6.707 5.293z"/>
+                  </svg>
+                </span>
+                <span v-if="!loadingRewards && availableRewardCount > 0" class="reward-dropdown__count">
+                  {{ availableRewardCount }}
+                </span>
+              </div>
+
+              <div v-if="dropdownOpen" class="reward-dropdown__menu">
+                <div v-if="loadingRewards" class="reward-dropdown__loading">
+                  <span class="spinner-sm"></span>
+                  <span>Loading rewards…</span>
+                </div>
+                <template v-else>
+                  <div v-if="!filteredRewards?.length" class="reward-dropdown__empty">
+                    {{ availableRewardCount === 0 ? 'No rewards available. Check your access token.' : 'No rewards match your search.' }}
+                  </div>
+                  <div
+                    v-for="reward in filteredRewards"
+                    :key="reward?.id"
+                    class="reward-option"
+                    :class="{ 'reward-option--added': isRewardAdded(reward?.id) }"
+                    @click="addReward(reward)"
+                  >
+                    <img
+                      v-if="reward?.image?.length"
+                      :src="reward.image[0]"
+                      class="reward-option__thumb"
+                      alt=""
+                    />
+                    <div v-else class="reward-option__thumb reward-option__thumb--placeholder">
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" opacity="0.4">
+                        <path d="M2 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4zm2 0v8l3-3 2 2 4-4 3 3V4H4z"/>
+                      </svg>
+                    </div>
+                    <div class="reward-option__text">
+                      <span class="reward-option__name">{{ reward?.name || 'Untitled' }}</span>
+                      <span v-if="reward?.description_headline" class="reward-option__desc">
+                        {{ reward.description_headline }}
+                      </span>
+                    </div>
+                    <span v-if="isRewardAdded(reward?.id)" class="reward-option__badge">Added</span>
+                    <svg v-else class="reward-option__add-icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1z"/>
+                    </svg>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- Footer -->
@@ -415,6 +423,7 @@ export default {
     packageData: { type: Object, default: null },
     isNew: { type: Boolean, default: true },
     isSaving: { type: Boolean, default: false },
+    loading: { type: Boolean, default: false },
     availableRewards: { type: Array, default: () => [] },
     loadingRewards: { type: Boolean, default: false },
   },
@@ -782,6 +791,26 @@ export default {
   @include polaris-drawer-content;
 }
 
+// Sidebar loading state
+.sidebar-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--p-space-300);
+  padding: var(--p-space-1200);
+  min-height: 200px;
+
+  &__text {
+    font-size: var(--p-font-size-325);
+    color: var(--p-color-text-secondary);
+  }
+}
+
+.spinner-lg {
+  @include polaris-spinner-large;
+}
+
 // Footer (Pattern 23)
 .sidebar__footer {
   @include polaris-drawer-footer;
@@ -1010,7 +1039,6 @@ export default {
     align-items: center;
     justify-content: space-between;
     padding: var(--p-space-200) var(--p-space-300);
-    border-bottom: 1px solid var(--p-color-border);
     background: var(--p-color-bg-surface-secondary);
   }
 
@@ -1068,9 +1096,10 @@ export default {
   &__elective {
     display: flex;
     gap: var(--p-space-300);
-    padding: 0 var(--p-space-300) var(--p-space-300);
-    border-top: 1px dashed var(--p-color-border);
-    padding-top: var(--p-space-300);
+    margin: 0 var(--p-space-300) var(--p-space-300);
+    padding: var(--p-space-300);
+    background: var(--p-color-bg-surface-secondary);
+    border-radius: var(--p-border-radius-100);
   }
 }
 
@@ -1159,10 +1188,10 @@ export default {
 
   &__menu {
     position: absolute;
-    top: calc(100% + 4px);
+    top: calc(100% + var(--p-space-100));
     left: 0;
     right: 0;
-    z-index: 50;
+    z-index: var(--p-z-index-12, 50);
     background: var(--p-color-bg-surface);
     border: 1px solid var(--p-color-border);
     border-radius: var(--p-border-radius-200);
