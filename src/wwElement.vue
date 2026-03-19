@@ -11,7 +11,12 @@
     <div class="list-view">
       <div class="list-header">
         <h1 class="list-header__title">Packages</h1>
-        <button class="btn btn--primary" @click="openCreate">Create Package</button>
+        <button class="btn btn--primary btn--with-icon" @click="openCreate">
+          <svg class="btn__icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm1 4a1 1 0 1 0-2 0v3H6a1 1 0 1 0 0 2h3v3a1 1 0 1 0 2 0v-3h3a1 1 0 1 0 0-2h-3V6z"/>
+          </svg>
+          Create Package
+        </button>
       </div>
 
       <div class="filter-bar">
@@ -29,6 +34,22 @@
         </select>
       </div>
 
+      <!-- Persistent error banner for fetch failures -->
+      <div v-if="listError" class="banner banner--critical">
+        <div class="banner__content">
+          <strong>Failed to load packages</strong>
+          <p class="banner__message">{{ listErrorMessage }}</p>
+        </div>
+        <div class="banner__actions">
+          <button class="btn btn--outline btn--sm" @click="retryFetch">Retry</button>
+          <button class="btn-icon btn-icon--sm" @click="listError = false">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M6.707 5.293a1 1 0 0 0-1.414 1.414L8.586 10l-3.293 3.293a1 1 0 1 0 1.414 1.414L10 11.414l3.293 3.293a1 1 0 0 0 1.414-1.414L11.414 10l3.293-3.293a1 1 0 0 0-1.414-1.414L10 8.586 6.707 5.293z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <!-- Loading -->
       <div v-if="listLoading" class="table-wrap">
         <div class="loading-center">
@@ -37,17 +58,22 @@
       </div>
 
       <!-- Empty -->
-      <div v-else-if="!packages?.length" class="empty-wrap">
+      <div v-else-if="!packages?.length && !listError" class="empty-wrap">
         <div class="empty-state">
           <span class="empty-state__icon">📦</span>
           <h2 class="empty-state__heading">No packages yet</h2>
           <p class="empty-state__text">Create your first package to bundle rewards together.</p>
-          <button class="btn btn--primary" @click="openCreate">Create Package</button>
+          <button class="btn btn--primary btn--with-icon" @click="openCreate">
+            <svg class="btn__icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm1 4a1 1 0 1 0-2 0v3H6a1 1 0 1 0 0 2h3v3a1 1 0 1 0 2 0v-3h3a1 1 0 1 0 0-2h-3V6z"/>
+            </svg>
+            Create Package
+          </button>
         </div>
       </div>
 
       <!-- Table -->
-      <div v-else class="table-wrap">
+      <div v-else-if="packages?.length" class="table-wrap">
         <table class="data-table">
           <thead>
             <tr>
@@ -113,6 +139,7 @@
         :packageData="editingPackage"
         :isNew="isCreatingNew"
         :isSaving="isSaving"
+        :loading="sidebarLoading"
         :availableRewards="availableRewards"
         :loadingRewards="loadingRewards"
         @save="handleSave"
@@ -176,12 +203,15 @@ export default {
     // State
     const packages = ref([])
     const listLoading = ref(false)
+    const listError = ref(false)
+    const listErrorMessage = ref('')
     const searchQuery = ref('')
     const statusFilter = ref('')
     const sidebarOpen = ref(false)
     const isCreatingNew = ref(false)
     const editingPackage = ref(null)
     const isSaving = ref(false)
+    const sidebarLoading = ref(false)
     const availableRewards = ref([])
     const loadingRewards = ref(false)
 
@@ -226,22 +256,30 @@ export default {
         if (result?.success) {
           packages.value = result?.data || []
           setPackageCount(packages.value.length)
+          listError.value = false
+          listErrorMessage.value = ''
           emit('trigger-event', {
             name: 'list-loaded',
             event: { packages: packages.value, count: packages.value.length },
           })
         } else {
-          showToast(result?.title || 'Failed to load packages', 'error')
+          const msg = result?.title || 'Failed to load packages'
+          listError.value = true
+          listErrorMessage.value = msg
+          showToast(msg, 'error')
           emit('trigger-event', {
             name: 'error',
-            event: { message: result?.title || 'Failed to load packages' },
+            event: { message: msg },
           })
         }
       } catch (err) {
-        showToast(err?.message || 'Network error', 'error')
+        const msg = err?.message || 'Network error'
+        listError.value = true
+        listErrorMessage.value = msg
+        showToast(msg, 'error')
         emit('trigger-event', {
           name: 'error',
-          event: { message: err?.message || 'Network error' },
+          event: { message: msg },
         })
       } finally {
         listLoading.value = false
@@ -292,6 +330,7 @@ export default {
     function openCreate() {
       isCreatingNew.value = true
       editingPackage.value = null
+      sidebarLoading.value = false
       sidebarOpen.value = true
       setSelectedPackageId('')
       fetchRewards()
@@ -307,8 +346,10 @@ export default {
       setSelectedPackageId(id)
       sidebarOpen.value = true
       editingPackage.value = null
+      sidebarLoading.value = true
       fetchRewards()
       const detail = await fetchPackageDetail(id)
+      sidebarLoading.value = false
       if (detail) {
         editingPackage.value = detail
       } else {
@@ -324,8 +365,15 @@ export default {
       sidebarOpen.value = false
       editingPackage.value = null
       isCreatingNew.value = false
+      sidebarLoading.value = false
       setSelectedPackageId('')
       emit('trigger-event', { name: 'sidebar-closed', event: {} })
+    }
+
+    function retryFetch() {
+      listError.value = false
+      listErrorMessage.value = ''
+      fetchPackageList()
     }
 
     // Save handler
@@ -439,12 +487,15 @@ export default {
       rootRef,
       packages,
       listLoading,
+      listError,
+      listErrorMessage,
       searchQuery,
       statusFilter,
       sidebarOpen,
       isCreatingNew,
       editingPackage,
       isSaving,
+      sidebarLoading,
       availableRewards,
       loadingRewards,
       toastVisible,
@@ -455,6 +506,7 @@ export default {
       openCreate,
       openEdit,
       closeSidebar,
+      retryFetch,
       handleSave,
       handleSearchRewards,
       formatCurrency,
@@ -516,6 +568,67 @@ export default {
 
   &--primary {
     @include polaris-button-primary;
+  }
+
+  &--outline {
+    @include polaris-button-outline;
+  }
+
+  &--sm {
+    font-size: var(--p-font-size-300);
+    padding: var(--p-space-100) var(--p-space-200);
+  }
+
+  &--with-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--p-space-100);
+  }
+
+  &__icon {
+    flex-shrink: 0;
+  }
+}
+
+.btn-icon {
+  @include polaris-button-icon;
+
+  &--sm {
+    @include polaris-button-icon-small;
+  }
+}
+
+// Error banner
+.banner {
+  @include polaris-banner-base;
+  margin-bottom: var(--p-space-400);
+
+  &--critical {
+    background: var(--p-color-bg-fill-critical-secondary);
+    border: 1px solid var(--p-color-border-critical);
+  }
+
+  &__content {
+    flex: 1;
+    font-size: var(--p-font-size-325);
+    color: var(--p-color-text-critical);
+
+    strong {
+      display: block;
+      margin-bottom: var(--p-space-100);
+    }
+  }
+
+  &__message {
+    margin: 0;
+    font-size: var(--p-font-size-300);
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--p-space-200);
+    flex-shrink: 0;
   }
 }
 
