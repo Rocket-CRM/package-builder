@@ -389,7 +389,7 @@ export default {
           p_price: payload?.price ?? null,
           p_points_price: payload?.pointsPrice ?? null,
           p_active_status: payload?.activeStatus ?? false,
-          p_items: JSON.stringify(payload?.items || []),
+          p_items: payload?.items || [],
         }
         if (payload?.id) {
           params.p_id = payload.id
